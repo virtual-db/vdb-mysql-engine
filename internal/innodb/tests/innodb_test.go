@@ -1,0 +1,67 @@
+// Package innodb_test — tests/innodb_test.go
+//
+// InnoDB's compatibility matrix as a table test, and the isolation mapping
+// (plan doc 09 §3.3, §6).
+package innodb_test
+
+import (
+	"testing"
+
+	core "github.com/virtual-db/vdb-core"
+
+	. "github.com/virtual-db/vdb-mysql-engine/internal/innodb"
+	"github.com/virtual-db/vdb-mysql-engine/protocol"
+)
+
+func TestMatrix(t *testing.T) {
+	m := Modes()
+	cases := []struct {
+		held, wanted core.LockMode
+		conflict     bool
+	}{
+		{RecordS, RecordS, false},
+		{RecordS, RecordX, true},
+		{RecordX, RecordS, true},
+		{Gap, Gap, false},
+		{Gap, RecordX, false},
+		{RecordX, Gap, false},
+		{Gap, InsertIntention, true},
+		{IntervalS, InsertIntention, true},
+		{IntervalX, InsertIntention, true},
+		{RecordX, InsertIntention, false},
+		{IntervalS, RecordS, false},
+		{IntervalS, RecordX, true},
+		{IntervalX, IntervalS, true},
+	}
+	for i, c := range cases {
+		if got := m.Conflicts(c.held, c.wanted, core.Resource{}, core.Resource{}); got != c.conflict {
+			t.Errorf("case %d (%s held, %s wanted): conflict = %v, want %v", i, m.Names[c.held], m.Names[c.wanted], got, c.conflict)
+		}
+	}
+	if !m.WaitOnly(InsertIntention) || m.WaitOnly(Gap) {
+		t.Error("only the insert intention is wait-only")
+	}
+	if !m.Covers(RecordX, RecordS) || m.Covers(RecordS, RecordX) {
+		t.Error("an exclusive record lock covers a shared one, not the reverse")
+	}
+}
+
+func TestIsolation(t *testing.T) {
+	cases := []struct {
+		level protocol.Isolation
+		scope core.SnapshotScope
+		view  core.ReadView
+		gaps  bool
+	}{
+		{protocol.Isolation_READ_UNCOMMITTED, core.PerStatement, core.ViewUncommitted, false},
+		{protocol.Isolation_READ_COMMITTED, core.PerStatement, core.ViewSnapshot, false},
+		{protocol.Isolation_REPEATABLE_READ, core.PerTransaction, core.ViewSnapshot, true},
+		{protocol.Isolation_SERIALIZABLE, core.PerTransaction, core.ViewSnapshot, true},
+	}
+	for _, c := range cases {
+		i := Isolation{Level: c.level}
+		if i.Scope() != c.scope || i.View() != c.view || i.Gaps() != c.gaps || i.ReleaseOnStatementRollback() == c.gaps {
+			t.Errorf("%v: scope %v view %v gaps %v", c.level, i.Scope(), i.View(), i.Gaps())
+		}
+	}
+}

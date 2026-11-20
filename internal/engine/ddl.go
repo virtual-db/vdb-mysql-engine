@@ -256,6 +256,18 @@ func (c *conn) alter(m *protocol.Alter) (proto.Message, error) {
 		}
 		ch.Local = &core.LocalChange{Kind: lk, Object: m.Object, Statement: m.Statement}
 	}
+	if ch.Local != nil && ch.Local.Kind == core.AddForeignKey && c.fkChecks {
+		// InnoDB checks the existing rows (product doc 10 §6.4); nothing is stored.
+		child := def
+		child.ID = old.ID
+		for _, f := range child.ForeignKeys {
+			if f.Name == ch.Local.Object {
+				if err := c.fk(s).ValidateExisting(s, &child, f); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	if c.control {
 		_, err = s.ApplySourceDDL(ch)
 	} else {

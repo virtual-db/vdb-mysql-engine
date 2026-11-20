@@ -48,7 +48,6 @@ func (c Config) CoreConfig() core.Config {
 		PluginDir:        c.c.PluginDir,
 		MemoryReserve:    c.c.MemoryReserve,
 		DeltaMaxBytes:    c.c.DeltaMaxBytes,
-		AutoIncrementGap: c.c.AutoIncrementGap,
 		CountDeclineKeys: c.c.CountMaxShadowed,
 		LookupBatch:      c.c.Source.LookupBatch,
 	}

@@ -8,6 +8,7 @@ import (
 
 	core "github.com/virtual-db/vdb-core"
 
+	"github.com/virtual-db/vdb-mysql-engine/internal/innodb"
 	"github.com/virtual-db/vdb-mysql-engine/protocol"
 )
 
@@ -109,35 +110,12 @@ func toCols(c []uint32) core.ColumnSet {
 	return out
 }
 
-func toLock(m protocol.LockMode) core.LockMode {
-	switch m {
-	case protocol.LockMode_LOCK_SHARED:
-		return core.LockShared
-	case protocol.LockMode_LOCK_EXCLUSIVE:
-		return core.LockExclusive
-	}
-	return core.LockNone
-}
-
-func toIsolation(i protocol.Isolation) core.Isolation {
-	switch i {
-	case protocol.Isolation_READ_COMMITTED:
-		return core.ReadCommitted
-	case protocol.Isolation_READ_UNCOMMITTED:
-		return core.ReadUncommitted
-	case protocol.Isolation_SERIALIZABLE:
-		return core.Serializable
-	}
-	return core.RepeatableRead
-}
-
-func toStmtContext(m *protocol.StmtBegin) core.StmtContext {
+func toStmtContext(m *protocol.StmtBegin, iso innodb.Isolation) core.StmtContext {
 	eval := core.EvalContext{}
 	for _, s := range m.Eval {
 		eval[s.Name] = s.Value
 	}
-	return core.StmtContext{Database: m.Database, Isolation: toIsolation(m.Isolation), Autocommit: m.Autocommit,
-		LockIntent: toLock(m.LockIntent), ForeignKeyChecks: m.ForeignKeyChecks,
+	return core.StmtContext{Database: m.Database, Snapshot: iso.Scope(), View: iso.View(),
 		LockWait: time.Duration(m.LockWaitMs) * time.Millisecond, Eval: eval, ReadOnly: m.ReadOnly, Digest: m.Digest}
 }
 

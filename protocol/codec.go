@@ -31,9 +31,23 @@ func Decode(body []byte, msg proto.Message) error {
 	return nil
 }
 
-// Error codes beyond the core's error codes (doc 07 §4).
+// Error codes (doc 07 §4). vdb.so maps each to its HA_ERR_* value in one
+// table (vdb-mysql-plugins/src/common/errors.cc); the numbers are part of the
+// protocol and never change.
 const (
-	CodeProtocol    = 1000 // unknown op, malformed body
-	CodeVersion     = 1001 // protocol version refused
-	CodeUnavailable = 1002 // vdb-mysql cannot serve the request
+	CodeDuplicateKey    = 1
+	CodeNoReferencedRow = 2
+	CodeRowIsReferenced = 3
+	CodeFKDepth         = 4
+	CodeLockWaitTimeout = 5
+	CodeDeadlock        = 6
+	CodeDeltaFull       = 7
+	CodeLockMemory      = 8
+	CodeRefused         = 9
+	CodeSource          = 10
+	CodeKilled          = 11
+	CodeInternal        = 12
+	CodeProtocol        = 1000 // unknown op, malformed body
+	CodeVersion         = 1001 // protocol version refused
+	CodeUnavailable     = 1002 // vdb-mysql cannot serve the request
 )

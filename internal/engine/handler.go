@@ -1,6 +1,7 @@
 // Package engine is the data-channel handler (implementation plan doc 09 §3):
 // one conn per mysqld session with its core.Session and open scans, and one
-// method per message of doc 07 §3.2. It also serves the kill connection.
+// method per message of doc 07 §3.2. InnoDB's lock and foreign-key rules
+// around each core call are in writes.go. It also serves the kill connection.
 package engine
 
 import (
@@ -16,18 +17,21 @@ import (
 	core "github.com/virtual-db/vdb-core"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/virtual-db/vdb-mysql-engine/internal/autoinc"
 	"github.com/virtual-db/vdb-mysql-engine/internal/collations"
+	"github.com/virtual-db/vdb-mysql-engine/internal/innodb"
 	"github.com/virtual-db/vdb-mysql-engine/internal/stats"
 	"github.com/virtual-db/vdb-mysql-engine/protocol"
 )
 
 var log = logx.Pkg("engine")
 
-// Config holds the batch limits.
+// Config holds the batch limits and the auto-increment gap.
 type Config struct {
-	BatchRows   int
-	BatchBytes  int
-	InsertBatch int
+	BatchRows        int
+	BatchBytes       int
+	InsertBatch      int
+	AutoIncrementGap uint64
 }
 
 // SessionStats are one session's counters for vdb.sessions.
@@ -44,6 +48,7 @@ type Handler struct {
 	stats  *stats.Stats
 	proven *collations.Proven
 	cfg    Config
+	auto   *autoinc.Counters
 
 	mu    sync.Mutex
 	conns map[uint64]*conn
@@ -57,7 +62,8 @@ func New(api core.DriverAPI, st *stats.Stats, proven *collations.Proven, cfg Con
 	if cfg.BatchBytes <= 0 {
 		cfg.BatchBytes = 512 * 1024
 	}
-	return &Handler{api: api, stats: st, proven: proven, cfg: cfg, conns: map[uint64]*conn{}}
+	api.Locks().Define(innodb.Modes())
+	return &Handler{api: api, stats: st, proven: proven, cfg: cfg, auto: autoinc.New(api, cfg.AutoIncrementGap), conns: map[uint64]*conn{}}
 }
 
 // Hello accepts data and kill connections.
@@ -162,21 +168,24 @@ func (e *protoErr) Error() string { return e.msg }
 
 // conn is one data connection.
 type conn struct {
-	h       *Handler
-	pc      *protocol.Conn
-	id      uint64
-	account string
-	control bool
-	sess    core.Session
-	scans   map[uint32]*scan
-	nextID  uint32
-	seen    map[core.TableID]uint64
-	pending []core.Batch // the rest of a lookup cut at the byte cap
-	pendKey []byte
-	noBKA   atomic.Int64
-	since   time.Time
-	ctx     core.StmtContext
-	waited  bool
+	h        *Handler
+	pc       *protocol.Conn
+	id       uint64
+	account  string
+	control  bool
+	sess     core.Session
+	scans    map[uint32]*scan
+	nextID   uint32
+	seen     map[core.TableID]uint64
+	pending  []core.Batch // the rest of a lookup cut at the byte cap
+	pendKey  []byte
+	noBKA    atomic.Int64
+	since    time.Time
+	ctx      core.StmtContext
+	iso      innodb.Isolation
+	fkChecks bool
+	stmtMark core.LockMark
+	waited   bool
 }
 
 type scan struct {
@@ -205,7 +214,6 @@ func (c *conn) session() (core.Session, error) {
 		c.sess = s
 	}
 	c.waited = false
-	c.sess.SetCallbacks(c.onWait, c.onImages)
 	return c.sess, nil
 }
 
@@ -283,12 +291,18 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if !m.Bka {
 			c.noBKA.Add(1)
 		}
-		c.ctx = toStmtContext(m)
+		c.iso = innodb.Isolation{Level: m.Isolation}
+		c.fkChecks = m.ForeignKeyChecks
+		c.ctx = toStmtContext(m, c.iso)
 		s, err := c.session()
 		if err != nil {
 			return nil, err
 		}
-		return &protocol.Empty{}, s.StmtBegin(c.ctx)
+		if err := s.StmtBegin(c.ctx); err != nil {
+			return nil, err
+		}
+		c.stmtMark = s.LockMark()
+		return &protocol.Empty{}, nil
 	case protocol.OpStmtEnd, protocol.OpStmtRollback, protocol.OpCommit, protocol.OpRollback, protocol.OpSnapshot:
 		s, err := c.session()
 		if err != nil {
@@ -301,6 +315,9 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		case protocol.OpStmtRollback:
 			c.closeScans()
 			err = s.StmtRollback()
+			if c.iso.ReleaseOnStatementRollback() {
+				c.h.api.Locks().ReleaseSince(s, c.stmtMark)
+			}
 		case protocol.OpCommit:
 			c.closeScans()
 			err = s.Commit()
@@ -397,7 +414,8 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &protocol.Empty{}, s.Update(core.TableID(m.Table), toRef(m.Old), toRow(m.Row), toImages(m.Images))
+		old := toRef(m.Old)
+		return &protocol.Empty{}, c.UpdateRow(s, core.TableID(m.Table), old, old.Whole, toRow(m.Row), toImages(m.Images), 0)
 	case protocol.OpDelete:
 		m, err := decode[protocol.Delete](body)
 		if err != nil {
@@ -407,17 +425,14 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &protocol.Empty{}, s.Delete(core.TableID(m.Table), toRef(m.Old))
+		old := toRef(m.Old)
+		return &protocol.Empty{}, c.DeleteRow(s, core.TableID(m.Table), old, old.Whole, 0)
 	case protocol.OpAutoIncrement:
 		m, err := decode[protocol.AutoIncrement](body)
 		if err != nil {
 			return nil, err
 		}
-		s, err := c.session()
-		if err != nil {
-			return nil, err
-		}
-		first, granted, err := s.AutoIncrement(core.TableID(m.Table), m.Count)
+		first, granted, err := c.h.auto.Next(core.TableID(m.Table), m.Count, 1, 1)
 		return &protocol.AutoIncrementReply{First: first, Granted: granted}, err
 	case protocol.OpTruncate:
 		m, err := decode[protocol.Truncate](body)
@@ -508,12 +523,15 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 		return nil, err
 	}
 	req := core.ScanRequest{Table: core.TableID(m.Table), Index: core.IndexID(m.Index), Ordered: m.Kind != protocol.ScanKind_SCAN_UNORDERED,
-		Columns: toCols(m.Columns), Pushed: m.Pushed, Lock: toLock(m.Lock)}
+		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock)}
 	if m.Backward {
 		req.Dir = core.Backward
 	}
 	for _, r := range m.Ranges {
 		req.Ranges = append(req.Ranges, toRange(r))
+	}
+	if err := c.intervalLocks(s, req, m.Lock); err != nil {
+		return nil, err
 	}
 	start := time.Now()
 	sh, err := s.Scan(req)
@@ -617,7 +635,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	b, shadows, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), toLock(m.Lock))
+	b, shadows, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock))
 	if err != nil {
 		return nil, err
 	}
@@ -701,14 +719,14 @@ func (c *conn) insert(t uint32, prows []*protocol.Row, pims []*protocol.Images) 
 			ims[i] = toImages(pims[i])
 		}
 	}
-	res, err := s.Insert(core.TableID(t), rows, ims)
+	res, err := c.insertRows(s, core.TableID(t), rows, ims)
 	if err != nil {
 		return nil, err
 	}
 	rep := &protocol.InsertReply{}
-	for _, r := range res {
-		if r.Err != nil {
-			rep.Results = append(rep.Results, &protocol.WriteResult{Error: toError(r.Err)})
+	for _, e := range res {
+		if e != nil {
+			rep.Results = append(rep.Results, &protocol.WriteResult{Error: toError(e)})
 		} else {
 			rep.Results = append(rep.Results, &protocol.WriteResult{Ok: true})
 		}
