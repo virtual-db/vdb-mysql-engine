@@ -1,0 +1,38 @@
+# ci.yml: Lint and Test on pull requests and on main; the status checks main's
+# branch protection requires (plan doc 14 §4). Every module is public, so no
+# token beyond GITHUB_TOKEN is needed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+      - name: vet
+        run: go vet ./...
+      - name: generated protocol is current
+        run: |
+          make proto
+          git diff --exit-code protocol/vdb.pb.go
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: test
+        run: go test -race ./...
