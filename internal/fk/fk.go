@@ -41,7 +41,9 @@ func (e *Error) Error() string { return e.Msg }
 // Writer is the data handler's own write path, so a cascaded change takes
 // its locks and runs these rules again, one level deeper.
 type Writer interface {
-	UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow, row core.Row, images []core.KeyImage, depth int) error
+	// UpdateRow's via names the foreign key whose cascade made the change; its
+	// parent check is skipped, as InnoDB skips it (the parent is changing).
+	UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow, row core.Row, images []core.KeyImage, depth int, via string) error
 	DeleteRow(s core.Session, t core.TableID, old core.RowRef, oldRow core.Row, depth int) error
 }
 
@@ -226,7 +228,7 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 			if err != nil {
 				return err
 			}
-			if err := c.W.UpdateRow(s, cdef.ID, ref, row, nr, ims[0], depth+1); err != nil {
+			if err := c.W.UpdateRow(s, cdef.ID, ref, row, nr, ims[0], depth+1, f.Name); err != nil {
 				return err
 			}
 		}

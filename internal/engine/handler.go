@@ -416,7 +416,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 			return nil, err
 		}
 		old := toRef(m.Old)
-		return &protocol.Empty{}, c.UpdateRow(s, core.TableID(m.Table), old, old.Whole, toRow(m.Row), toImages(m.Images), 0)
+		return &protocol.Empty{}, c.UpdateRow(s, core.TableID(m.Table), old, old.Whole, toRow(m.Row), toImages(m.Images), 0, "")
 	case protocol.OpDelete:
 		m, err := decode[protocol.Delete](body)
 		if err != nil {

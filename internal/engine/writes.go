@@ -196,7 +196,7 @@ func perRow(err error) bool {
 
 // UpdateRow updates a row with InnoDB's locks and foreign-key rules; depth is
 // the cascade depth (0 for a client statement).
-func (c *conn) UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow, row core.Row, images []core.KeyImage, depth int) error {
+func (c *conn) UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow, row core.Row, images []core.KeyImage, depth int, via string) error {
 	if err := c.lock(s, innodb.Row(t, old.SourceKey, old.PK.Image), innodb.RecordX); err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (c *conn) UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow
 	if ok && (c.fkChecks || depth > 0) {
 		chk := c.fk(s)
 		for _, f := range mysqldef.Tab(&d).ForeignKeys {
-			if oldRow != nil && sameCols(oldRow, row, f.Columns) {
+			if f.Name == via || (oldRow != nil && sameCols(oldRow, row, f.Columns)) {
 				continue
 			}
 			if err := chk.CheckParent(s, &d, f, row, images); err != nil {

@@ -38,6 +38,8 @@ github.com/virtual-db/vdb-core v0.0.1-alpha-1.0.20261120045514-a799631c246c h1:f
 github.com/virtual-db/vdb-core v0.0.1-alpha-1.0.20261120045514-a799631c246c/go.mod h1:NxjVrhTfKJmOlJu5z3vLesGgijqJwHZqmnQ7FFCHIqk=
 github.com/virtual-db/vdb-core v0.0.1-alpha-1.0.20261120175959-4df5415ec4ad h1:9w+x0pOSxWjc9VNkPtL9WcVlOuFOhZiF7izkWOpaspQ=
 github.com/virtual-db/vdb-core v0.0.1-alpha-1.0.20261120175959-4df5415ec4ad/go.mod h1:NxjVrhTfKJmOlJu5z3vLesGgijqJwHZqmnQ7FFCHIqk=
+github.com/virtual-db/vdb-core v0.0.1-alpha-1.0.20261120185329-41098beea532 h1:Sjx+EFCyOF2eUenKFguVbDBtvWcudx8EYhN6KwEhl+w=
+github.com/virtual-db/vdb-core v0.0.1-alpha-1.0.20261120185329-41098beea532/go.mod h1:NxjVrhTfKJmOlJu5z3vLesGgijqJwHZqmnQ7FFCHIqk=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 golang.org/x/net v0.53.0 h1:d+qAbo5L0orcWAr0a9JweQpjXF19LMXJE8Ey7hwOdUA=
