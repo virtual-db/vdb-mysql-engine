@@ -116,9 +116,9 @@ func (c *Checker) CheckParent(s core.Session, child *core.TableDef, fk mysqldef.
 	if !pix.EqualityProven {
 		return refused(child.ID, fk.Name)
 	}
-	var img core.KeyImage
-	if int(fk.ChildIndex) < len(images) {
-		img = cut(images[fk.ChildIndex], prefixLen(pix, len(pix.Columns)))
+	img, err := c.keyImage(&parent, pix.ID, pix.Columns, vals)
+	if err != nil {
+		return err
 	}
 	b, err := s.ByColumns(parent.ID, pix.ID, img, pix.Columns, vals, pix.Columns, c.rowLocks(s, innodb.RecordS))
 	if err != nil {
@@ -156,7 +156,6 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 	if len(kids) == 0 || oldRow == nil {
 		return nil
 	}
-	var oldImages []core.KeyImage
 	for _, cf := range kids {
 		f := cf.fk
 		pid, found := mysqldef.ParentIndex(parent, f)
@@ -180,20 +179,11 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 		if newRow != nil {
 			action = f.OnUpdate
 		}
-		if oldImages == nil && c.Images != nil {
-			ims, err := c.Images(parent.ID, []core.Row{oldRow})
-			if err != nil {
-				return err
-			}
-			if len(ims) > 0 {
-				oldImages = ims[0]
-			}
-		}
-		var img core.KeyImage
-		if int(pix.ID) < len(oldImages) {
-			img = cut(oldImages[pix.ID], prefixLen(pix, len(pix.Columns)))
-		}
 		cdef := cf.child
+		img, err := c.keyImage(&cdef, f.ChildIndex, f.Columns, oldVals)
+		if err != nil {
+			return err
+		}
 		restrict := action == mysqldef.FKRestrict || action == mysqldef.FKNoAction
 		var locks *core.ReadLocks
 		if !restrict {
@@ -242,6 +232,35 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 		}
 	}
 	return nil
+}
+
+// keyImage is the sort image of the leading key parts of index idx of table
+// t for the values vals of its columns cols, as vdb.so computes it for that
+// table: the referencing and the referenced key can differ in form (a
+// nullable child column carries a NULL indicator the parent key does not),
+// so each side's image comes from its own index. Nil means no Delta lookup.
+func (c *Checker) keyImage(t *core.TableDef, idx core.IndexID, cols []uint16, vals core.Row) (core.KeyImage, error) {
+	ix := t.Index(idx)
+	if c.Images == nil || ix == nil {
+		return nil, nil
+	}
+	row := make(core.Row, len(t.Columns))
+	for i := range row {
+		row[i] = core.Value{Null: true}
+	}
+	for i, col := range cols {
+		if int(col) < len(row) && i < len(vals) {
+			row[col] = vals[i]
+		}
+	}
+	ims, err := c.Images(t.ID, []core.Row{row})
+	if err != nil {
+		return nil, err
+	}
+	if len(ims) == 0 || int(idx) >= len(ims[0]) {
+		return nil, nil
+	}
+	return cut(ims[0][idx], prefixLen(ix, len(cols))), nil
 }
 
 func all(d *core.TableDef) core.ColumnSet {
