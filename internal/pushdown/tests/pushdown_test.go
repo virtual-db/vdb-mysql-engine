@@ -5,6 +5,7 @@
 package pushdown_test
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"testing"
 
 	core "github.com/virtual-db/vdb-core"
@@ -13,8 +14,8 @@ import (
 )
 
 func table() *core.TableDef {
-	return &core.TableDef{Database: "shop", Name: "users", Columns: []core.ColumnDef{
-		{Name: "id"}, {Name: "name"}, {Name: "score", Float: true}, {Name: "added", Fetch: core.Default}, {Name: "email"},
+	return &core.TableDef{Namespace: []string{"shop"}, Name: "users", Columns: []core.ColumnDef{
+		{Name: "id"}, {Name: "name"}, {Name: "score", Engine: mysqldef.Encode(mysqldef.Column{Float: true})}, {Name: "added", Fetch: core.Default}, {Name: "email"},
 	}}
 }
 

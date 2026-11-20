@@ -6,6 +6,7 @@
 package engine
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strings"
 
 	core "github.com/virtual-db/vdb-core"
@@ -18,10 +19,11 @@ import (
 // numbers; the identity is the primary key, else the first unique key whose
 // columns are all NOT NULL, else the whole row (D-10).
 func (h *Handler) toDef(t *protocol.TableDefinition) core.TableDef {
-	d := core.TableDef{Database: t.Database, Name: t.Name, Definition: t.Definition, Identity: core.WholeRow}
+	d := core.TableDef{Namespace: mysqldef.NS(t.Database), Name: t.Name, Identity: core.WholeRow}
 	for i, c := range t.Columns {
-		col := core.ColumnDef{Name: c.Name, Pos: uint16(i), Type: c.Type, Charset: c.Charset, Collation: c.Collation,
-			Nullable: c.Nullable, Timestamp: c.Timestamp, Float: c.Float, AutoIncrement: c.AutoIncrement}
+		col := core.ColumnDef{Name: c.Name, Pos: uint16(i), Nullable: c.Nullable,
+			Engine: mysqldef.Encode(mysqldef.Column{Type: c.Type, Charset: c.Charset, Collation: c.Collation,
+				Timestamp: c.Timestamp, Float: c.Float, AutoIncrement: c.AutoIncrement})}
 		if c.VirtualGen {
 			col.Fetch = core.Virtual
 		}
@@ -39,14 +41,15 @@ func (h *Handler) toDef(t *protocol.TableDefinition) core.TableDef {
 		def := core.IndexDef{ID: core.IndexID(i), Name: ix.Name, Primary: ix.Primary, Unique: ix.Unique || ix.Primary,
 			OrderProven: true, EqualityProven: true}
 		notNull := true
+		var parts mysqldef.Index
 		for k, c := range ix.Columns {
 			def.Columns = append(def.Columns, uint16(c))
 			if k < len(ix.PartLens) {
-				def.PartLens = append(def.PartLens, ix.PartLens[k])
+				parts.PartLens = append(parts.PartLens, ix.PartLens[k])
 			}
 			coll := ""
 			if int(c) < len(d.Columns) {
-				coll = d.Columns[c].Collation
+				coll = mysqldef.ColOf(d.Columns[c]).Collation
 				if d.Columns[c].Nullable {
 					notNull = false
 				}
@@ -58,19 +61,23 @@ func (h *Handler) toDef(t *protocol.TableDefinition) core.TableDef {
 				def.EqualityProven = false
 			}
 		}
+		def.Engine = mysqldef.Encode(parts)
 		if d.Identity == core.WholeRow && (def.Primary || (def.Unique && notNull)) {
 			d.Identity = def.ID
 		}
 		d.Indexes = append(d.Indexes, def)
 	}
+	tab := mysqldef.Table{Definition: t.Definition}
 	for _, f := range t.ForeignKeys {
-		fk := core.ForeignKeyDef{Name: f.Name, ParentDB: f.ParentDb, ParentTable: f.ParentTable, ParentColumns: f.ParentColumns,
+		fk := mysqldef.ForeignKey{Name: f.Name, ParentDB: f.ParentDb, ParentTable: f.ParentTable, ParentColumns: f.ParentColumns,
 			OnDelete: fkAction(f.OnDelete), OnUpdate: fkAction(f.OnUpdate), ChildIndex: core.IndexID(f.ChildIndex)}
 		for _, c := range f.Columns {
 			fk.Columns = append(fk.Columns, uint16(c))
 		}
-		d.ForeignKeys = append(d.ForeignKeys, fk)
+		tab.ForeignKeys = append(tab.ForeignKeys, fk)
 	}
+	d.Engine = mysqldef.Encode(tab)
+	d.KeyNeedsShadows = mysqldef.KeyNeedsShadows(&d)
 	h.applyTransforms(&d)
 	return d
 }
@@ -87,7 +94,7 @@ func (h *Handler) applyTransforms(d *core.TableDef) {
 		set[strings.ToLower(t)] = true
 	}
 	for i, c := range d.Columns {
-		if set[strings.ToLower(d.Database+"."+d.Name+"."+c.Name)] && c.Fetch == core.FromSource {
+		if set[strings.ToLower(mysqldef.DB(d)+"."+d.Name+"."+c.Name)] && c.Fetch == core.FromSource {
 			d.Columns[i].Fetch = core.Transformed
 		}
 	}
@@ -134,7 +141,7 @@ func (c *conn) catalog(m *protocol.Catalog) (proto.Message, error) {
 			return nil, &core.Error{Code: core.ErrRefused, Msg: "CREATE without a definition"}
 		}
 		def := c.h.toDef(m.Table)
-		if existing, ok := cat.TableByName(def.Database, def.Name); ok && c.control {
+		if existing, ok := cat.TableByName(def.Namespace, def.Name); ok && c.control {
 			// Rebuild: the table is already in the catalog. Keep its id, kind
 			// and Source mapping; take mysqld's own definition and key layout.
 			def.ID, def.Kind, def.Source, def.LocalChanges = existing.ID, existing.Kind, existing.Source, existing.LocalChanges
@@ -151,7 +158,7 @@ func (c *conn) catalog(m *protocol.Catalog) (proto.Message, error) {
 			return &protocol.CatalogReply{Table: uint32(existing.ID), Version: existing.Version}, nil
 		}
 		def.Kind = core.Local
-		if strings.EqualFold(def.Database, "vdb") {
+		if strings.EqualFold(mysqldef.DB(&def), "vdb") {
 			def.Kind = core.Provided
 		}
 		for i := range def.Columns {
@@ -173,7 +180,7 @@ func (c *conn) catalog(m *protocol.Catalog) (proto.Message, error) {
 	case protocol.CatalogKind_CATALOG_DROP:
 		id := core.TableID(m.TableId)
 		if id == 0 && m.Table != nil {
-			if d, ok := cat.TableByName(m.Table.Database, m.Table.Name); ok {
+			if d, ok := cat.TableByName(mysqldef.NS(m.Table.Database), m.Table.Name); ok {
 				id = d.ID
 			}
 		}
@@ -190,13 +197,16 @@ func (c *conn) catalog(m *protocol.Catalog) (proto.Message, error) {
 	case protocol.CatalogKind_CATALOG_RENAME:
 		id := core.TableID(m.TableId)
 		if id == 0 && m.Table != nil {
-			if d, ok := cat.TableByName(m.Table.Database, m.Table.Name); ok {
+			if d, ok := cat.TableByName(mysqldef.NS(m.Table.Database), m.Table.Name); ok {
 				id = d.ID
 			}
 		}
-		ch := core.CatalogChange{Kind: core.RenameTable, ID: id, NewDB: m.NewDatabase, NewName: m.NewName}
+		ch := core.CatalogChange{Kind: core.RenameTable, ID: id, NewNamespace: mysqldef.NS(m.NewDatabase), NewName: m.NewName}
 		if m.Table != nil {
-			ch.Table.Definition = m.Table.Definition
+			cur, _ := cat.Table(id)
+			tab := mysqldef.Tab(&cur)
+			tab.Definition = m.Table.Definition
+			ch.Table.Engine = mysqldef.Encode(tab)
 		}
 		if c.control {
 			_, err = s.ApplySourceDDL(ch)
@@ -254,13 +264,13 @@ func (c *conn) alter(m *protocol.Alter) (proto.Message, error) {
 		if !ok {
 			lk = core.OtherChange
 		}
-		ch.Local = &core.LocalChange{Kind: lk, Object: m.Object, Statement: m.Statement}
+		ch.Local = &core.LocalChange{Kind: lk, Object: m.Object, Engine: mysqldef.Encode(mysqldef.Local{Statement: m.Statement})}
 	}
 	if ch.Local != nil && ch.Local.Kind == core.AddForeignKey && c.fkChecks {
 		// InnoDB checks the existing rows (product doc 10 §6.4); nothing is stored.
 		child := def
 		child.ID = old.ID
-		for _, f := range child.ForeignKeys {
+		for _, f := range mysqldef.Tab(&child).ForeignKeys {
 			if f.Name == ch.Local.Object {
 				if err := c.fk(s).ValidateExisting(s, &child, f); err != nil {
 					return nil, err

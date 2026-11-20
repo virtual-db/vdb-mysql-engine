@@ -4,6 +4,7 @@
 package engine
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"time"
 
 	core "github.com/virtual-db/vdb-core"
@@ -157,14 +158,14 @@ func fetchOf(f core.FetchMode) protocol.FetchMode {
 	return protocol.FetchMode_FETCH_SOURCE
 }
 
-func fkAction(a uint32) core.FKAction {
+func fkAction(a uint32) mysqldef.FKAction {
 	switch a {
 	case 1:
-		return core.FKNoAction
+		return mysqldef.FKNoAction
 	case 2:
-		return core.FKCascade
+		return mysqldef.FKCascade
 	case 3:
-		return core.FKSetNull
+		return mysqldef.FKSetNull
 	}
-	return core.FKRestrict
+	return mysqldef.FKRestrict
 }

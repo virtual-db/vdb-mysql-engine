@@ -7,6 +7,7 @@ package engine
 import (
 	"context"
 	"github.com/virtual-db/vdb-mysql-engine/internal/logx"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"io"
 	"strconv"
 	"strings"
@@ -230,7 +231,7 @@ func (c *conn) onWait(holder uint64) {
 func (c *conn) onImages(t core.TableID, rows []core.Row) ([][]core.KeyImage, error) {
 	req := &protocol.ImagesNeeded{Table: uint32(t)}
 	if d, ok := c.h.api.Catalog().Table(t); ok {
-		req.Database, req.Name = d.Database, d.Name
+		req.Database, req.Name = mysqldef.DB(&d), d.Name
 	}
 	for _, r := range rows {
 		req.Rows = append(req.Rows, fromRow(r))
@@ -269,7 +270,7 @@ func (c *conn) warnings(t core.TableID, version uint64) []*protocol.Warning {
 	last, seen := c.seen[t]
 	c.seen[t] = d.Version
 	if (seen && last != d.Version) || (version != 0 && version < d.Version && !seen) {
-		return []*protocol.Warning{{Code: 1105, Text: "table " + d.Database + "." + d.Name + " changed on the Source: see vdb.schema_changes"}}
+		return []*protocol.Warning{{Code: 1105, Text: "table " + mysqldef.DB(&d) + "." + d.Name + " changed on the Source: see vdb.schema_changes"}}
 	}
 	return nil
 }
@@ -493,7 +494,7 @@ func (c *conn) closeScans() {
 }
 
 func (c *conn) tableOpen(m *protocol.TableOpen) (proto.Message, error) {
-	d, ok := c.h.api.Catalog().TableByName(m.Database, m.Table)
+	d, ok := c.h.api.Catalog().TableByName(mysqldef.NS(m.Database), m.Table)
 	if !ok {
 		return nil, &core.Error{Code: core.ErrRefused, Msg: "table " + m.Database + "." + m.Table + " is not in VDB's catalog of record"}
 	}

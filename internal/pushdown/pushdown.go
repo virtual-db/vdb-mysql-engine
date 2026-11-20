@@ -11,6 +11,7 @@ package pushdown
 import (
 	_ "embed"
 	"github.com/virtual-db/vdb-mysql-engine/internal/logx"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strings"
 	"sync/atomic"
 
@@ -131,7 +132,7 @@ func (p *Pushdown) column(d *core.TableDef, c *sqlparser.ColName) bool {
 		return false
 	}
 	col := d.Columns[i]
-	if col.Fetch != core.FromSource || col.Float || col.Timestamp || p.Transformed(d.Database, d.Name, col.Name) {
+	if col.Fetch != core.FromSource || mysqldef.ColOf(col).Float || mysqldef.ColOf(col).Timestamp || p.Transformed(mysqldef.DB(d), d.Name, col.Name) {
 		return false
 	}
 	// Render the column unqualified.

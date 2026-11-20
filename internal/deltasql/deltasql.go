@@ -7,6 +7,7 @@
 package deltasql
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"regexp"
 	"sort"
 	"strconv"
@@ -27,7 +28,7 @@ type Statement struct {
 
 var engineClause = regexp.MustCompile(`(?i)\s*ENGINE\s*=\s*\w+`)
 
-func qual(d *core.TableDef) string { return source.Ident(d.Database) + "." + source.Ident(d.Name) }
+func qual(d *core.TableDef) string { return source.Ident(mysqldef.DB(d)) + "." + source.Ident(d.Name) }
 
 // Render renders every statement.
 func Render(api core.DriverAPI) []Statement {
@@ -37,25 +38,25 @@ func Render(api core.DriverAPI) []Statement {
 	var out []Statement
 	add := func(kind string, d *core.TableDef, schema, name, sql string) {
 		if d != nil {
-			schema, name = d.Database, d.Name
+			schema, name = mysqldef.DB(d), d.Name
 		}
 		out = append(out, Statement{Seq: uint64(len(out) + 1), Kind: kind, Schema: schema, Name: name, SQL: sql})
 	}
 	for i := range tables {
 		d := &tables[i]
-		if d.Kind == core.Local && !strings.EqualFold(d.Database, "vdb") {
-			add("ddl", d, "", "", engineClause.ReplaceAllString(d.Definition, ""))
+		if d.Kind == core.Local && !strings.EqualFold(mysqldef.DB(d), "vdb") {
+			add("ddl", d, "", "", engineClause.ReplaceAllString(mysqldef.Tab(d).Definition, ""))
 		}
 	}
 	for i := range tables {
 		d := &tables[i]
 		for _, lc := range d.LocalChanges {
-			add("ddl", d, "", "", lc.Statement)
+			add("ddl", d, "", "", mysqldef.LocalOf(lc).Statement)
 		}
 	}
 	for _, o := range cat.Objects() {
 		if o.Origin == core.ObjectClient {
-			add("ddl", nil, o.Database, o.Name, o.Statement)
+			add("ddl", nil, mysqldef.ObjDB(o), o.Name, mysqldef.Obj(o).Statement)
 		}
 	}
 	reader := api.Delta()

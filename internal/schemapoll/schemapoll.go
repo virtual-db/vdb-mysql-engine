@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/virtual-db/vdb-mysql-engine/internal/logx"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"sort"
 	"strings"
 	"sync"
@@ -228,7 +229,7 @@ func (p *Poller) record(schema, table, change, effect string, affected []string)
 	p.mu.Lock()
 	p.seq++
 	p.changes = append(p.changes, Change{Seq: p.seq, AppliedAt: time.Now(), Schema: schema, Table: table, Change: change, DeltaEffect: effect, Affected: affected})
-	if d, ok := p.api.Catalog().TableByName(schema, table); ok {
+	if d, ok := p.api.Catalog().TableByName(mysqldef.NS(schema), table); ok {
 		p.last[d.ID] = time.Now()
 	}
 	p.mu.Unlock()
@@ -256,7 +257,7 @@ func AffectedJSON(a []string) string {
 }
 
 func (p *Poller) deltaState(db, table string) (core.TableDef, uint64, bool) {
-	d, ok := p.api.Catalog().TableByName(db, table)
+	d, ok := p.api.Catalog().TableByName(mysqldef.NS(db), table)
 	if !ok {
 		return d, 0, false
 	}
@@ -306,7 +307,7 @@ func (p *Poller) add(ctx context.Context, db, table string) {
 		log.Warn("catalog refused a new Source table", "err", err)
 		return
 	}
-	if err := p.exec(ctx, db, def.Definition); err != nil {
+	if err := p.exec(ctx, db, mysqldef.Tab(def).Definition); err != nil {
 		log.Warn("new Source table not created", "table", db+"."+table, "err", err)
 		return
 	}
@@ -338,7 +339,7 @@ func (p *Poller) drop(ctx context.Context, db, table string) {
 
 // rename applies a rename proven by exact evidence (doc 12 §5.2).
 func (p *Poller) rename(ctx context.Context, db, from, to string) {
-	d, ok := p.api.Catalog().TableByName(db, from)
+	d, ok := p.api.Catalog().TableByName(mysqldef.NS(db), from)
 	if !ok {
 		return
 	}
@@ -364,7 +365,7 @@ func (p *Poller) renames(ctx context.Context, db string, added, dropped []string
 	if len(added) != 1 || len(dropped) != 1 {
 		return out
 	}
-	old, ok := p.api.Catalog().TableByName(db, dropped[0])
+	old, ok := p.api.Catalog().TableByName(mysqldef.NS(db), dropped[0])
 	if !ok || old.Source == nil {
 		return out
 	}
@@ -373,7 +374,7 @@ func (p *Poller) renames(ctx context.Context, db string, added, dropped []string
 		return out
 	}
 	norm := func(s, name string) string { return strings.Replace(s, "`"+name+"`", "`T`", 1) }
-	if norm(discoveryStrip(old.Source.Definition), dropped[0]) == norm(discoveryStrip(nd.Source.Definition), added[0]) {
+	if norm(discoveryStrip(mysqldef.Src(&old).Definition), dropped[0]) == norm(discoveryStrip(mysqldef.Src(nd).Definition), added[0]) {
 		out[dropped[0]] = added[0]
 	}
 	return out
@@ -400,7 +401,7 @@ func (p *Poller) change(ctx context.Context, db, table string) {
 		if _, err := p.api.Catalog().ApplySource(core.SourceChange{Kind: core.SourceTableChanged, ID: d.ID, Table: *nd}); err != nil {
 			return
 		}
-		if err := p.exec(ctx, db, control.DropTable(db, table), nd.Definition); err != nil {
+		if err := p.exec(ctx, db, control.DropTable(db, table), mysqldef.Tab(nd).Definition); err != nil {
 			log.Warn("changed Source table not recreated", "err", err)
 			return
 		}
@@ -412,7 +413,7 @@ func (p *Poller) change(ctx context.Context, db, table string) {
 		return
 	}
 	if d.Source != nil {
-		d.Source.Definition, d.Source.Fingerprint = nd.Source.Definition, nd.Source.Fingerprint
+		d.Source.Engine, d.Source.Fingerprint = nd.Source.Engine, nd.Source.Fingerprint
 	}
 	if err := p.exec(ctx, db, stmts...); err != nil {
 		log.Warn("Source change not applied", "table", db+"."+table, "err", err)
@@ -430,11 +431,11 @@ func (p *Poller) change(ctx context.Context, db, table string) {
 // and the new Source definition. Local changes that conflict (same column or
 // index name) are removed first.
 func (p *Poller) alters(cur *core.TableDef, nd *core.TableDef) ([]string, []string, string) {
-	oldCols := columnLines(p.parser, cur.Source.Definition)
-	newCols := columnLines(p.parser, nd.Source.Definition)
-	oldIdx := indexLines(p.parser, cur.Source.Definition)
-	newIdx := indexLines(p.parser, nd.Source.Definition)
-	t := source.Ident(cur.Database) + "." + source.Ident(cur.Name)
+	oldCols := columnLines(p.parser, mysqldef.Src(cur).Definition)
+	newCols := columnLines(p.parser, mysqldef.Src(nd).Definition)
+	oldIdx := indexLines(p.parser, mysqldef.Src(cur).Definition)
+	newIdx := indexLines(p.parser, mysqldef.Src(nd).Definition)
+	t := source.Ident(mysqldef.DB(cur)) + "." + source.Ident(cur.Name)
 	var stmts, removed, desc []string
 	local := map[string]bool{}
 	for _, lc := range cur.LocalChanges {
@@ -542,7 +543,7 @@ func (p *Poller) objectPrints(ctx context.Context, db string, init bool) {
 		}
 		objs, _ := p.disc.Objects(ctx, db)
 		for _, o := range objs {
-			if strings.EqualFold(o.Name, str(r[1])) && strings.EqualFold(o.Kind.String(), str(r[0])) {
+			if strings.EqualFold(o.Name, str(r[1])) && strings.EqualFold(o.Kind, str(r[0])) {
 				p.applyObject(ctx, o)
 			}
 		}
@@ -566,14 +567,14 @@ func (p *Poller) objectPrints(ctx context.Context, db string, init bool) {
 		name := strings.SplitN(f[1], ".", 2)[1]
 		word := strings.ToUpper(f[0])
 		_ = p.exec(ctx, db, "DROP "+word+" IF EXISTS "+source.Ident(name))
-		kind := core.View
+		kind := mysqldef.View
 		switch word {
 		case "PROCEDURE":
-			kind = core.Procedure
+			kind = mysqldef.Procedure
 		case "FUNCTION":
-			kind = core.Function
+			kind = mysqldef.Function
 		}
-		_, _ = p.api.Catalog().ApplySource(core.SourceChange{Kind: core.SourceObjectDropped, Object: core.Object{Kind: kind, Database: db, Name: name}})
+		_, _ = p.api.Catalog().ApplySource(core.SourceChange{Kind: core.SourceObjectDropped, Object: core.Object{Kind: kind, Namespace: mysqldef.NS(db), Name: name}})
 		p.record(db, name, strings.ToLower(word)+" dropped", "none", nil)
 	}
 }
@@ -581,15 +582,15 @@ func (p *Poller) objectPrints(ctx context.Context, db string, init bool) {
 func (p *Poller) applyObject(ctx context.Context, o core.Object) {
 	stmts := []string{}
 	switch o.Kind {
-	case core.View:
-		stmts = append(stmts, strings.Replace(o.Statement, "CREATE ", "CREATE OR REPLACE ", 1))
-	case core.Procedure, core.Function:
-		stmts = append(stmts, "DROP "+strings.ToUpper(o.Kind.String())+" IF EXISTS "+source.Ident(o.Name), o.Statement)
+	case mysqldef.View:
+		stmts = append(stmts, strings.Replace(mysqldef.Obj(o).Statement, "CREATE ", "CREATE OR REPLACE ", 1))
+	case mysqldef.Procedure, mysqldef.Function:
+		stmts = append(stmts, "DROP "+strings.ToUpper(o.Kind)+" IF EXISTS "+source.Ident(o.Name), mysqldef.Obj(o).Statement)
 	}
-	if err := p.exec(ctx, o.Database, stmts...); err != nil {
-		log.Warn("Source object change not applied", "object", o.Database+"."+o.Name, "err", err)
+	if err := p.exec(ctx, mysqldef.ObjDB(o), stmts...); err != nil {
+		log.Warn("Source object change not applied", "object", mysqldef.ObjDB(o)+"."+o.Name, "err", err)
 		return
 	}
 	_, _ = p.api.Catalog().ApplySource(core.SourceChange{Kind: core.SourceObjectChanged, Object: o})
-	p.record(o.Database, o.Name, fmt.Sprintf("%s changed", o.Kind), "none", nil)
+	p.record(mysqldef.ObjDB(o), o.Name, fmt.Sprintf("%s changed", o.Kind), "none", nil)
 }

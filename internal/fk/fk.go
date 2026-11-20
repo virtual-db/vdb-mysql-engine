@@ -8,6 +8,7 @@ package fk
 
 import (
 	"bytes"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"io"
 	"strings"
 
@@ -67,12 +68,12 @@ func values(row core.Row, cols []uint16) (core.Row, bool) {
 }
 
 func prefixLen(ix *core.IndexDef, parts int) int {
-	if ix == nil || len(ix.PartLens) < parts {
+	if ix == nil || len(mysqldef.Idx(ix).PartLens) < parts {
 		return -1
 	}
 	n := 0
 	for i := 0; i < parts; i++ {
-		n += int(ix.PartLens[i])
+		n += int(mysqldef.Idx(ix).PartLens[i])
 	}
 	return n
 }
@@ -98,17 +99,18 @@ func (c *Checker) rowLocks(s core.Session, mode core.LockMode) *core.ReadLocks {
 
 // CheckParent checks that a child row's parent exists, taking a shared lock
 // on it. A NULL in any foreign-key column skips the check.
-func (c *Checker) CheckParent(s core.Session, child *core.TableDef, fk core.ForeignKeyDef, row core.Row, images []core.KeyImage) error {
+func (c *Checker) CheckParent(s core.Session, child *core.TableDef, fk mysqldef.ForeignKey, row core.Row, images []core.KeyImage) error {
 	vals, ok := values(row, fk.Columns)
 	if !ok {
 		return nil
 	}
-	parent, ok := c.API.Catalog().TableByName(fk.ParentDB, fk.ParentTable)
+	parent, ok := c.API.Catalog().TableByName(mysqldef.NS(fk.ParentDB), fk.ParentTable)
 	if !ok {
 		return &Error{Code: NoReferencedRow, Constraint: fk.Name, Msg: "Cannot add or update a child row: a foreign key constraint fails (parent table is missing)"}
 	}
-	pix := parent.Index(fk.ParentIndex)
-	if pix == nil {
+	pid, found := mysqldef.ParentIndex(&parent, fk)
+	pix := parent.Index(pid)
+	if !found || pix == nil {
 		return &Error{Code: NoReferencedRow, Constraint: fk.Name, Msg: "Cannot add or update a child row: a foreign key constraint fails (parent key is missing)"}
 	}
 	if !pix.EqualityProven {
@@ -131,14 +133,14 @@ func (c *Checker) CheckParent(s core.Session, child *core.TableDef, fk core.Fore
 // childFK is a foreign key with its child table.
 type childFK struct {
 	child core.TableDef
-	fk    core.ForeignKeyDef
+	fk    mysqldef.ForeignKey
 }
 
 func (c *Checker) children(parent *core.TableDef) []childFK {
 	var out []childFK
 	for _, t := range c.API.Catalog().Tables() {
-		for _, f := range t.ForeignKeys {
-			if strings.EqualFold(f.ParentDB, parent.Database) && strings.EqualFold(f.ParentTable, parent.Name) {
+		for _, f := range mysqldef.Tab(&t).ForeignKeys {
+			if strings.EqualFold(f.ParentDB, mysqldef.DB(parent)) && strings.EqualFold(f.ParentTable, parent.Name) {
 				out = append(out, childFK{child: t, fk: f})
 			}
 		}
@@ -157,8 +159,9 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 	var oldImages []core.KeyImage
 	for _, cf := range kids {
 		f := cf.fk
-		pix := parent.Index(f.ParentIndex)
-		if pix == nil {
+		pid, found := mysqldef.ParentIndex(parent, f)
+		pix := parent.Index(pid)
+		if !found || pix == nil {
 			continue
 		}
 		oldVals, ok := values(oldRow, pix.Columns)
@@ -191,7 +194,7 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 			img = cut(oldImages[pix.ID], prefixLen(pix, len(pix.Columns)))
 		}
 		cdef := cf.child
-		restrict := action == core.FKRestrict || action == core.FKNoAction
+		restrict := action == mysqldef.FKRestrict || action == mysqldef.FKNoAction
 		var locks *core.ReadLocks
 		if !restrict {
 			locks = c.rowLocks(s, innodb.RecordX)
@@ -211,7 +214,7 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 		}
 		for i, row := range b.Rows {
 			ref := b.Refs[i]
-			if action == core.FKCascade && newRow == nil {
+			if action == mysqldef.FKCascade && newRow == nil {
 				if err := c.W.DeleteRow(s, cdef.ID, ref, row, depth+1); err != nil {
 					return err
 				}
@@ -220,7 +223,7 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 			nr := core.Row(append([]core.Value(nil), row...))
 			newVals, _ := values(newRow, pix.Columns)
 			for j, col := range f.Columns {
-				if action == core.FKSetNull || newVals == nil {
+				if action == mysqldef.FKSetNull || newVals == nil {
 					nr[col] = core.Value{Null: true}
 				} else {
 					nr[col] = newVals[j]
@@ -264,7 +267,7 @@ func equal(a, b core.Row) bool {
 // ValidateExisting checks every existing child row for ADD FOREIGN KEY with
 // checks on: it streams the merged child table and fails on the first
 // orphan. Nothing is stored (product doc 10 §6.4).
-func (c *Checker) ValidateExisting(s core.Session, cdef *core.TableDef, f core.ForeignKeyDef) error {
+func (c *Checker) ValidateExisting(s core.Session, cdef *core.TableDef, f mysqldef.ForeignKey) error {
 	h, err := s.Scan(core.ScanRequest{Table: cdef.ID, Index: cdef.Identity, Columns: all(cdef)})
 	if err != nil {
 		return err

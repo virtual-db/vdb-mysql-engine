@@ -8,6 +8,7 @@ package engine
 
 import (
 	"bytes"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 
 	core "github.com/virtual-db/vdb-core"
 
@@ -175,7 +176,7 @@ func (c *conn) insertRows(s core.Session, t core.TableID, rows []core.Row, ims [
 
 func (c *conn) checkParents(s core.Session, d *core.TableDef, row core.Row, ims []core.KeyImage) error {
 	chk := c.fk(s)
-	for _, f := range d.ForeignKeys {
+	for _, f := range mysqldef.Tab(d).ForeignKeys {
 		if err := chk.CheckParent(s, d, f, row, ims); err != nil {
 			return err
 		}
@@ -209,7 +210,7 @@ func (c *conn) UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow
 	}
 	if ok && (c.fkChecks || depth > 0) {
 		chk := c.fk(s)
-		for _, f := range d.ForeignKeys {
+		for _, f := range mysqldef.Tab(&d).ForeignKeys {
 			if oldRow != nil && sameCols(oldRow, row, f.Columns) {
 				continue
 			}

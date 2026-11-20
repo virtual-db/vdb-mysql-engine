@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/virtual-db/vdb-mysql-engine/internal/logx"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strconv"
 	"strings"
 	"sync"
@@ -179,7 +180,7 @@ func (a *Adapter) run(ctx context.Context, q querier, conn uint64, digest string
 	start := time.Now()
 	rec := Record{ConnID: conn, Digest: digest, Shape: s.shape, Started: start}
 	if d != nil {
-		rec.Schema, rec.Table = d.Database, d.Name
+		rec.Schema, rec.Table = mysqldef.DB(d), d.Name
 	}
 	rows, err := q.QueryContext(ctx, a.comment(conn)+s.sql)
 	if err != nil {

@@ -8,6 +8,7 @@ package vdbschema
 
 import (
 	_ "embed"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"io"
 	"sort"
 	"strconv"
@@ -96,7 +97,7 @@ func Register(cat core.Catalog, providers map[string]Rows) {
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		if d, ok := cat.TableByName("vdb", n); ok {
+		if d, ok := cat.TableByName(mysqldef.NS("vdb"), n); ok {
 			cat.Provide(d.ID, &Provider{rows: providers[n]})
 		}
 	}

@@ -5,6 +5,7 @@
 package source
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strconv"
 	"strings"
 
@@ -36,7 +37,7 @@ type projection struct {
 func fetched(c core.ColumnDef) bool { return c.Fetch == core.FromSource || c.Fetch == core.Transformed }
 
 func colExpr(c core.ColumnDef) string {
-	if c.Timestamp {
+	if mysqldef.ColOf(c).Timestamp {
 		return "UNIX_TIMESTAMP(" + Ident(c.Name) + ")"
 	}
 	return Ident(c.Name)
@@ -85,9 +86,9 @@ func project(d *core.TableDef, cols core.ColumnSet) projection {
 }
 
 func tableRef(d *core.TableDef) string {
-	db, name := d.Database, d.Name
+	db, name := mysqldef.DB(d), d.Name
 	if d.Source != nil {
-		db, name = d.Source.Database, d.Source.Table
+		db, name = mysqldef.SourceDB(d.Source), d.Source.Table
 	}
 	return Ident(db) + "." + Ident(name)
 }

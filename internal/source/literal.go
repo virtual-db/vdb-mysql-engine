@@ -10,6 +10,7 @@ package source
 
 import (
 	"encoding/hex"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strings"
 
 	core "github.com/virtual-db/vdb-core"
@@ -31,7 +32,7 @@ const (
 
 // KindOf classifies a column by its SQL type and character set.
 func KindOf(c core.ColumnDef) Kind {
-	t := strings.ToLower(c.Type)
+	t := strings.ToLower(mysqldef.ColOf(c).Type)
 	base := t
 	if i := strings.IndexAny(t, "( "); i >= 0 {
 		base = t[:i]
@@ -50,7 +51,7 @@ func KindOf(c core.ColumnDef) Kind {
 	case "json":
 		return KindJSON
 	case "char", "varchar", "tinytext", "text", "mediumtext", "longtext", "enum", "set":
-		if c.Charset == "binary" {
+		if mysqldef.ColOf(c).Charset == "binary" {
 			return KindBinary
 		}
 		return KindString
@@ -81,13 +82,13 @@ func Literal(c core.ColumnDef, v core.Value) string {
 	case KindJSON:
 		return "CAST(_utf8mb4 X'" + hex.EncodeToString(v.B) + "' AS JSON)"
 	case KindString:
-		cs := c.Charset
+		cs := mysqldef.ColOf(c).Charset
 		if cs == "" {
 			cs = "utf8mb4"
 		}
 		s := "_" + cs + " X'" + hex.EncodeToString(v.B) + "'"
-		if c.Collation != "" {
-			s += " COLLATE " + c.Collation
+		if mysqldef.ColOf(c).Collation != "" {
+			s += " COLLATE " + mysqldef.ColOf(c).Collation
 		}
 		return s
 	}

@@ -4,6 +4,7 @@
 package server
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"os"
 	"strconv"
 	"strings"
@@ -89,7 +90,7 @@ func (s *Server) tablesRows(core.SessionInfo) [][]string {
 		for _, ix := range d.Indexes {
 			if !ix.OrderProven || !ix.EqualityProven {
 				for _, c := range ix.Columns {
-					if coll := d.Columns[c].Collation; coll != "" && !contains(unproven, coll) {
+					if coll := mysqldef.ColOf(d.Columns[c]).Collation; coll != "" && !contains(unproven, coll) {
 						unproven = append(unproven, coll)
 					}
 				}
@@ -99,7 +100,7 @@ func (s *Server) tablesRows(core.SessionInfo) [][]string {
 		if s.poll != nil {
 			last = vdbschema.Time(s.poll.LastChange(d.ID))
 		}
-		rows = append(rows, []string{d.Database, d.Name, d.Kind.String(), u(st.DeltaRows), u(st.TouchedKeys), u(st.Bytes), strings.Join(unproven, ","), last})
+		rows = append(rows, []string{mysqldef.DB(&d), d.Name, d.Kind.String(), u(st.DeltaRows), u(st.TouchedKeys), u(st.Bytes), strings.Join(unproven, ","), last})
 	}
 	return rows
 }
@@ -241,7 +242,7 @@ func (s *Server) registerMetrics() {
 		set("vdb_delta_bytes", "", float64(ds.Bytes))
 		names := map[core.TableID]string{}
 		for _, d := range s.api.Catalog().Tables() {
-			names[d.ID] = d.Database + "." + d.Name
+			names[d.ID] = mysqldef.DB(&d) + "." + d.Name
 		}
 		for _, t := range ds.Tables {
 			set("vdb_delta_rows", "table="+names[t.Table], float64(t.DeltaRows))

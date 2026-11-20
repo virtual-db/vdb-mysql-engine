@@ -6,6 +6,7 @@
 package source_test
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strings"
 	"testing"
 
@@ -15,10 +16,10 @@ import (
 )
 
 func pageTable(nullablePK bool) *core.TableDef {
-	return &core.TableDef{ID: 1, Database: "db", Name: "t", Kind: core.Mirrored,
-		Columns:  []core.ColumnDef{{Name: "id", Type: "int", Nullable: nullablePK}, {Name: "v", Type: "int", Nullable: true}},
+	return &core.TableDef{ID: 1, Namespace: []string{"db"}, Name: "t", Kind: core.Mirrored,
+		Columns:  []core.ColumnDef{{Name: "id", Nullable: nullablePK, Engine: mysqldef.Encode(mysqldef.Column{Type: "int"})}, {Name: "v", Nullable: true, Engine: mysqldef.Encode(mysqldef.Column{Type: "int"})}},
 		Indexes:  []core.IndexDef{{ID: 0, Name: "PRIMARY", Primary: true, Unique: true, Columns: []uint16{0}}},
-		Identity: 0, Source: &core.SourceMapping{Database: "db", Table: "t"}}
+		Identity: 0, Source: &core.SourceMapping{Namespace: []string{"db"}, Table: "t"}}
 }
 
 func TestKeysetPageHasNoOffset(t *testing.T) {

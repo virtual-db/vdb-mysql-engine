@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"io"
 	"sort"
 	"strconv"
@@ -189,7 +190,7 @@ func (s *snapshot) run(d *core.TableDef, sh shaped) ([][]core.Value, error) {
 	defer cancel()
 	rows, err := s.a.run(ctx, q, s.info.ConnID, s.digest, d, sh)
 	if err != nil {
-		return nil, &core.Error{Code: core.ErrSource, Table: d.ID, Msg: "Source request failed for " + d.Database + "." + d.Name + ": " + err.Error()}
+		return nil, &core.Error{Code: core.ErrSource, Table: d.ID, Msg: "Source request failed for " + mysqldef.DB(d) + "." + d.Name + ": " + err.Error()}
 	}
 	s.rows += int64(len(rows))
 	if max := s.a.cfg.MaxSourceRows; max > 0 && s.rows > max {

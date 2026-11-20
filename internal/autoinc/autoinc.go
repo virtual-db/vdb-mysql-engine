@@ -7,6 +7,7 @@
 package autoinc
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strconv"
 	"sync"
 
@@ -64,7 +65,7 @@ func (c *Counters) Next(t core.TableID, n, offset, increment uint64) (first, gra
 		}
 		next := c.highest(def) + 1
 		if def.Kind == core.Mirrored && def.Source != nil {
-			src := def.Source.AutoInc
+			src := mysqldef.Src(&def).AutoInc
 			if src < 1 {
 				src = 1
 			}
@@ -95,7 +96,7 @@ func (c *Counters) Next(t core.TableID, n, offset, increment uint64) (first, gra
 func (c *Counters) highest(def core.TableDef) uint64 {
 	col := -1
 	for i, cd := range def.Columns {
-		if cd.AutoIncrement {
+		if mysqldef.ColOf(cd).AutoIncrement {
 			col = i
 			break
 		}

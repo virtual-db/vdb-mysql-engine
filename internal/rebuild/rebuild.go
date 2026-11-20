@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/virtual-db/vdb-mysql-engine/internal/logx"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"regexp"
 	"sort"
 	"strings"
@@ -99,9 +100,9 @@ func (r *Rebuilder) Run(ctx context.Context) error {
 		}
 	}
 	for _, t := range tables {
-		if !seen[strings.ToLower(t.Database)] {
-			seen[strings.ToLower(t.Database)] = true
-			if err := r.ctl.Exec(ctx, control.CreateDatabase(t.Database, "", "")); err != nil {
+		if !seen[strings.ToLower(mysqldef.DB(&t))] {
+			seen[strings.ToLower(mysqldef.DB(&t))] = true
+			if err := r.ctl.Exec(ctx, control.CreateDatabase(mysqldef.DB(&t), "", "")); err != nil {
 				return fmt.Errorf("rebuild: %w", err)
 			}
 		}
@@ -125,15 +126,15 @@ func (r *Rebuilder) Run(ctx context.Context) error {
 			return err
 		}
 		for _, t := range tables {
-			if t.Kind == core.Provided || strings.EqualFold(t.Database, "vdb") {
+			if t.Kind == core.Provided || strings.EqualFold(mysqldef.DB(&t), "vdb") {
 				continue
 			}
-			if err := e.Exec(ctx, control.Use(t.Database)); err != nil {
+			if err := e.Exec(ctx, control.Use(mysqldef.DB(&t))); err != nil {
 				return err
 			}
-			if err := e.Exec(ctx, t.Definition); err != nil {
+			if err := e.Exec(ctx, mysqldef.Tab(&t).Definition); err != nil {
 				r.mu.Lock()
-				r.fail(Error{Type: "table", Schema: t.Database, Name: t.Name, Error: err.Error()})
+				r.fail(Error{Type: "table", Schema: mysqldef.DB(&t), Name: t.Name, Error: err.Error()})
 				r.mu.Unlock()
 			}
 		}
@@ -167,7 +168,7 @@ func (r *Rebuilder) Run(ctx context.Context) error {
 	for _, o := range retry {
 		if err := r.object(ctx, o); err != nil {
 			r.mu.Lock()
-			r.fail(Error{Type: o.Kind.String(), Schema: o.Database, Name: o.Name, Error: err.Error()})
+			r.fail(Error{Type: o.Kind, Schema: mysqldef.ObjDB(o), Name: o.Name, Error: err.Error()})
 			r.mu.Unlock()
 		}
 	}
@@ -183,15 +184,15 @@ func (r *Rebuilder) Run(ctx context.Context) error {
 // object creates one view, routine or trigger with its database and sql_mode.
 func (r *Rebuilder) object(ctx context.Context, o core.Object) error {
 	return r.ctl.Session(ctx, func(e control.Exec) error {
-		if err := e.Exec(ctx, control.Use(o.Database)); err != nil {
+		if err := e.Exec(ctx, control.Use(mysqldef.ObjDB(o))); err != nil {
 			return err
 		}
-		if o.SQLMode != "" {
-			if err := e.Exec(ctx, control.SetSession("sql_mode", control.Str(o.SQLMode))); err != nil {
+		if mysqldef.Obj(o).SQLMode != "" {
+			if err := e.Exec(ctx, control.SetSession("sql_mode", control.Str(mysqldef.Obj(o).SQLMode))); err != nil {
 				return err
 			}
 		}
-		return e.Exec(ctx, WithDefiner(o.Statement, o.Definer))
+		return e.Exec(ctx, WithDefiner(mysqldef.Obj(o).Statement, mysqldef.Obj(o).Definer))
 	})
 }
 

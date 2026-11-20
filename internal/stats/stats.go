@@ -6,6 +6,7 @@ package stats
 
 import (
 	"context"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strings"
 	"sync"
 	"time"
@@ -135,7 +136,7 @@ func (s *Stats) For(ctx context.Context, d *core.TableDef, idx core.IndexID, r *
 			deltaRows, touched = t.DeltaRows, t.TouchedKeys
 		}
 	}
-	src, _ := s.Table(d.Database, d.Name)
+	src, _ := s.Table(mysqldef.DB(d), d.Name)
 	if d.Kind == core.Mirrored && src != nil {
 		rep.Records = src.Rows
 		rep.MeanRecLength = src.AvgRowLen

@@ -4,6 +4,7 @@
 package statements
 
 import (
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"strings"
 	"sync"
 	"time"
@@ -113,22 +114,22 @@ func (h *Handler) Serve(c *protocol.Conn, _ *protocol.Hello) {
 }
 
 // objectKind classifies a captured statement by its leading words.
-func objectKind(stmt string) (core.ObjectKind, bool, bool) {
+func objectKind(stmt string) (string, bool, bool) {
 	f := strings.Fields(strings.ToUpper(stmt))
 	drop := len(f) > 0 && f[0] == "DROP"
 	for _, w := range f {
 		switch w {
 		case "VIEW":
-			return core.View, drop, true
+			return mysqldef.View, drop, true
 		case "PROCEDURE":
-			return core.Procedure, drop, true
+			return mysqldef.Procedure, drop, true
 		case "FUNCTION":
-			return core.Function, drop, true
+			return mysqldef.Function, drop, true
 		case "TRIGGER":
-			return core.Trigger, drop, true
+			return mysqldef.Trigger, drop, true
 		}
 	}
-	return 0, drop, false
+	return "", drop, false
 }
 
 func (h *Handler) captured(m *protocol.DdlCaptured) error {
@@ -142,8 +143,8 @@ func (h *Handler) captured(m *protocol.DdlCaptured) error {
 		db, name = strings.Trim(name[:i], "`"), name[i+1:]
 	}
 	name = strings.Trim(name, "`")
-	return h.api.Catalog().RecordObject(core.Object{Kind: kind, Database: db, Name: name, Statement: m.Statement,
-		SQLMode: m.SqlMode, Definer: m.Definer, Dropped: drop})
+	return h.api.Catalog().RecordObject(core.Object{Kind: kind, Namespace: mysqldef.NS(db), Name: name, Dropped: drop,
+		Engine: mysqldef.Encode(mysqldef.Object{Statement: m.Statement, SQLMode: m.SqlMode, Definer: m.Definer})})
 }
 
 func (h *Handler) event(m *protocol.Event) {
