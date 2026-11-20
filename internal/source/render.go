@@ -279,7 +279,7 @@ func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.
 	sb.WriteString(" FROM ")
 	sb.WriteString(tableRef(d))
 	shape := ShapePKPage
-	if ix := d.Index(idx); ix != nil && force && !ix.Primary {
+	if ix := d.Index(idx); ix != nil && force && !ix.Primary && !ix.AddedLocally {
 		sb.WriteString(" FORCE INDEX (" + Ident(ix.Name) + ")")
 		shape = ShapeIndexPage
 	}

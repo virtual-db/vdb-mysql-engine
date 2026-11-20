@@ -147,6 +147,7 @@ func (c *conn) catalog(m *protocol.Catalog) (proto.Message, error) {
 			def.ID, def.Kind, def.Source, def.LocalChanges = existing.ID, existing.Kind, existing.Source, existing.LocalChanges
 			def.Version = existing.Version
 			keepFetch(&existing, &def, false)
+			markLocalIndexes(&existing, &def, false)
 			for i := range def.Columns {
 				if j := existing.ColumnByName(def.Columns[i].Name); j >= 0 && existing.Columns[j].Fetch == core.Default {
 					def.Columns[i].Default = existing.Columns[j].Default
@@ -186,6 +187,12 @@ func (c *conn) catalog(m *protocol.Catalog) (proto.Message, error) {
 		}
 		if id == 0 {
 			return &protocol.CatalogReply{}, nil
+		}
+		if d, ok := cat.Table(id); ok && c.control && d.Kind == core.Mirrored {
+			// VDB's own DROP of a mirrored table: the schema poller recreating
+			// it from a new Source definition, or removing it after the Source
+			// dropped it. The poller keeps the catalog itself.
+			return &protocol.CatalogReply{Table: uint32(id)}, nil
 		}
 		ch := core.CatalogChange{Kind: core.DropTable, ID: id}
 		if c.control {
@@ -257,6 +264,7 @@ func (c *conn) alter(m *protocol.Alter) (proto.Message, error) {
 		def = c.h.toDef(m.TableDef)
 		keepFetch(&old, &def, c.control)
 		def.Source = old.Source
+		markLocalIndexes(&old, &def, !c.control && old.Kind == core.Mirrored)
 	}
 	ch := core.CatalogChange{Kind: core.AlterTable, ID: old.ID, Table: def}
 	if len(m.Kinds) > 0 {
@@ -287,4 +295,24 @@ func (c *conn) alter(m *protocol.Alter) (proto.Message, error) {
 		return nil, err
 	}
 	return &protocol.AlterReply{Verdict: verdict, Version: old.Version + 1}, nil
+}
+
+// markLocalIndexes carries AddedLocally over from the current definition by
+// index name, and marks an index the new definition adds when added is true
+// (a client ALTER on a mirrored table): the Source has no such index, so
+// Source reads never name it (doc 10 §4).
+func markLocalIndexes(cur, def *core.TableDef, added bool) {
+	for i := range def.Indexes {
+		found := false
+		for _, ix := range cur.Indexes {
+			if strings.EqualFold(ix.Name, def.Indexes[i].Name) {
+				def.Indexes[i].AddedLocally = ix.AddedLocally
+				found = true
+				break
+			}
+		}
+		if !found && added {
+			def.Indexes[i].AddedLocally = true
+		}
+	}
 }

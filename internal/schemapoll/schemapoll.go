@@ -326,6 +326,7 @@ func (p *Poller) drop(ctx context.Context, db, table string) {
 			log.Warn("dropped Source table not removed", "err", err)
 			return
 		}
+		_, _ = p.api.Catalog().ApplySource(core.SourceChange{Kind: core.SourceTableDropped, ID: d.ID})
 		p.record(db, table, "table dropped", "none", nil)
 		return
 	}
