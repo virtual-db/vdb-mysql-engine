@@ -280,11 +280,8 @@ func (c *pager) Next(maxRows int) (core.SourceRows, error) {
 	base := len(p.exprs)
 	exprs := append(append([]string(nil), p.exprs...), rawCols(c.d, c.order)...)
 	p.exprs = exprs
-	var after []core.Value
-	if c.keyset {
-		after = c.after
-	}
-	sh := renderPage(c.d, p, c.idx, c.req.Ranges, after, c.offset, c.pushed, c.req.Dir, limit, c.req.Ordered)
+	after, offset := continuation(c.keyset, c.after, c.offset)
+	sh := renderPage(c.d, p, c.idx, c.req.Ranges, after, offset, c.pushed, c.req.Dir, limit, c.req.Ordered)
 	raw, err := c.s.run(c.d, sh)
 	if err != nil {
 		return core.SourceRows{}, err
@@ -309,6 +306,23 @@ func (c *pager) Next(maxRows int) (core.SourceRows, error) {
 }
 
 func (c *pager) Close() error { c.done = true; return nil }
+
+// continuation says how the next page starts: after the last row delivered
+// when keyset continuation is safe, else at an offset. Never both: a keyset
+// page with an offset would skip the rows between them.
+func continuation(keyset bool, after []core.Value, offset int) ([]core.Value, int) {
+	if keyset {
+		return after, 0
+	}
+	return nil, offset
+}
+
+// PageSQL renders the SQL of the page a scan reads after delivered rows, at
+// the given last row (after) and count (offset); for tests of continuation.
+func PageSQL(d *core.TableDef, cols core.ColumnSet, idx core.IndexID, after []core.Value, offset, limit int) string {
+	a, o := continuation(keysetSafe(d, pageOrder(d, idx)), after, offset)
+	return renderPage(d, project(d, cols), idx, nil, a, o, "", core.Forward, limit, true).sql
+}
 
 // Lookup answers keys on an index in batches of vdb_lookup_batch keys.
 func (s *snapshot) Lookup(t core.TableID, idx core.IndexID, keys []core.Key, cols core.ColumnSet) (core.SourceRows, error) {
