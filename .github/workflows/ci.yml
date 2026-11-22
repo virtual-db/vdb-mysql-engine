@@ -1,11 +1,11 @@
-# ci.yml: Lint and Test on pull requests and on main; the status checks main's
+# ci.yml: Lint and Test on pull requests; the status checks main's
 # branch protection requires (plan doc 14 §4). Every module is public, so no
 # token beyond GITHUB_TOKEN is needed.
+# They do not run again on the merge to main, which only takes pull requests
+# that passed them.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
 
 jobs:
