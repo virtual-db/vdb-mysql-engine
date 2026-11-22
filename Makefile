@@ -1,5 +1,5 @@
 # Makefile: developer targets for vdb-mysql-engine.
-GO_IMAGE ?= golang:1.26.9
+GO_IMAGE ?= golang:1.27.4
 PROTOC_GEN_GO ?= v1.36.12
 
 .PHONY: proto test lint
