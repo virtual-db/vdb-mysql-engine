@@ -247,25 +247,29 @@ func (s *snapshot) Scan(req core.SourceScan) (core.SourceCursor, error) {
 	}
 	order := pageOrder(d, idx)
 	return &pager{s: s, d: d, p: project(d, req.Columns), req: req, idx: idx, pushed: pushed, none: none,
-		order: order, keyset: keysetSafe(d, order), limit: s.a.cfg.BatchRows}, nil
+		order: order, keyless: d.Identity == core.WholeRow, limit: s.a.cfg.BatchRows}, nil
 }
 
 // pager reads one page per Next; each page is read to its end before the
-// first row is returned, so the connection is idle between pages.
+// first row is returned, so the connection is idle between pages. Every page
+// after the first starts after the last row delivered (keyset), never at an
+// offset. A keyless table pages on all its columns: identical rows are not
+// told apart by any column, so its pages start at the last row delivered
+// (inclusive) and skip the identical rows already delivered (dup).
 type pager struct {
-	s      *snapshot
-	d      *core.TableDef
-	p      projection
-	req    core.SourceScan
-	idx    core.IndexID
-	pushed string
-	none   bool
-	order  []uint16
-	keyset bool
-	after  []core.Value
-	offset int
-	limit  int
-	done   bool
+	s       *snapshot
+	d       *core.TableDef
+	p       projection
+	req     core.SourceScan
+	idx     core.IndexID
+	pushed  string
+	none    bool
+	order   []uint16
+	keyless bool
+	after   []core.Value
+	dup     int // rows identical to after already delivered (keyless)
+	limit   int
+	done    bool
 }
 
 func (c *pager) Next(maxRows int) (core.SourceRows, error) {
@@ -276,29 +280,13 @@ func (c *pager) Next(maxRows int) (core.SourceRows, error) {
 	if maxRows > 0 && maxRows < limit {
 		limit = maxRows
 	}
-	// Select the order columns too, for keyset continuation.
-	p := c.p
-	base := len(p.exprs)
-	exprs := append(append([]string(nil), p.exprs...), rawCols(c.d, c.order)...)
-	p.exprs = exprs
-	after, offset := continuation(c.keyset, c.after, c.offset)
-	sh := renderPage(c.d, p, c.idx, c.req.Ranges, after, offset, c.pushed, c.req.Dir, limit, c.req.Ordered)
+	sh, base, skip := c.page(limit)
 	raw, err := c.s.run(c.d, sh)
 	if err != nil {
 		return core.SourceRows{}, err
 	}
-	if len(raw) < limit {
-		c.done = true
-	}
-	if len(raw) > 0 {
-		last := raw[len(raw)-1]
-		c.after = append([]core.Value(nil), last[base:]...)
-		c.offset += len(raw)
-	}
-	trimmed := make([][]core.Value, len(raw))
-	for i, r := range raw {
-		trimmed[i] = r[:base]
-	}
+	trimmed, done := c.take(raw, base, limit, skip)
+	c.done = done
 	out := fill(c.d, c.p, trimmed, 0)
 	if len(out.Rows) == 0 && c.done {
 		return out, io.EOF
@@ -306,23 +294,84 @@ func (c *pager) Next(maxRows int) (core.SourceRows, error) {
 	return out, nil
 }
 
-func (c *pager) Close() error { c.done = true; return nil }
-
-// continuation says how the next page starts: after the last row delivered
-// when keyset continuation is safe, else at an offset. Never both: a keyset
-// page with an offset would skip the rows between them.
-func continuation(keyset bool, after []core.Value, offset int) ([]core.Value, int) {
-	if keyset {
-		return after, 0
+// page renders the next page: the projection, then the order columns for
+// keyset continuation (from position base). skip is how many identical rows
+// of a keyless table the page repeats at its start.
+func (c *pager) page(limit int) (sh shaped, base, skip int) {
+	p := c.p
+	base = len(p.exprs)
+	p.exprs = append(append([]string(nil), p.exprs...), rawCols(c.d, c.order)...)
+	incl := c.keyless && c.after != nil
+	if incl {
+		skip = c.dup
 	}
-	return nil, offset
+	return renderPage(c.d, p, c.idx, c.req.Ranges, c.after, incl, c.pushed, c.req.Dir, limit+skip, c.req.Ordered), base, skip
 }
 
-// PageSQL renders the SQL of the page a scan reads after delivered rows, at
-// the given last row (after) and count (offset); for tests of continuation.
-func PageSQL(d *core.TableDef, cols core.ColumnSet, idx core.IndexID, after []core.Value, offset, limit int) string {
-	a, o := continuation(keysetSafe(d, pageOrder(d, idx)), after, offset)
-	return renderPage(d, project(d, cols), idx, nil, a, o, "", core.Forward, limit, true).sql
+// take records where the page ended and returns its new rows without the
+// order columns; done when the page came back short.
+func (c *pager) take(raw [][]core.Value, base, limit, skip int) ([][]core.Value, bool) {
+	done := len(raw) < limit+skip
+	// Drop the identical rows a keyless page repeats from the last one.
+	for skip > 0 && len(raw) > 0 && equalVals(raw[0][base:], c.after) {
+		raw = raw[1:]
+		skip--
+	}
+	if len(raw) > 0 {
+		last := raw[len(raw)-1][base:]
+		if c.keyless {
+			n := 0
+			for i := len(raw) - 1; i >= 0 && equalVals(raw[i][base:], last); i-- {
+				n++
+			}
+			if n == len(raw) && c.after != nil && equalVals(c.after, last) {
+				n += c.dup
+			}
+			c.dup = n
+		}
+		c.after = append([]core.Value(nil), last...)
+	}
+	trimmed := make([][]core.Value, len(raw))
+	for i, r := range raw {
+		trimmed[i] = r[:base]
+	}
+	return trimmed, done
+}
+
+// WalkPages reads a whole scan of d on index idx in direction dir, limit rows
+// per page, through query, exactly as a scan's pager would; for tests
+// against a real Source.
+func WalkPages(query func(sql string) ([][]core.Value, error), d *core.TableDef, cols core.ColumnSet, idx core.IndexID,
+	dir core.Direction, limit int) ([][]core.Value, []string, error) {
+	order := pageOrder(d, idx)
+	c := &pager{d: d, p: project(d, cols), req: core.SourceScan{Table: d.ID, Index: idx, Dir: dir, Ordered: true, Columns: cols},
+		idx: idx, order: order, keyless: d.Identity == core.WholeRow, limit: limit}
+	var rows [][]core.Value
+	var sqls []string
+	for {
+		sh, base, skip := c.page(limit)
+		sqls = append(sqls, sh.sql)
+		raw, err := query(sh.sql)
+		if err != nil {
+			return nil, sqls, err
+		}
+		trimmed, done := c.take(raw, base, limit, skip)
+		rows = append(rows, trimmed...)
+		if done {
+			return rows, sqls, nil
+		}
+		if len(sqls) > 100000 {
+			return rows, sqls, fmt.Errorf("WalkPages: no progress")
+		}
+	}
+}
+
+func (c *pager) Close() error { c.done = true; return nil }
+
+// PageSQL renders the SQL of the page a scan reads after the row after
+// (inclusive with incl), in direction dir; for tests of continuation.
+func PageSQL(d *core.TableDef, cols core.ColumnSet, idx core.IndexID, after []core.Value, incl bool, dir core.Direction, limit int) string {
+	return renderPage(d, project(d, cols), idx, nil, after, incl, "", dir, limit, true).sql
 }
 
 // Lookup answers keys on an index in batches of vdb_lookup_batch keys.

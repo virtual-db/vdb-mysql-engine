@@ -256,22 +256,66 @@ func pageOrder(d *core.TableDef, idx core.IndexID) []uint16 {
 	return cols
 }
 
-// keysetSafe reports whether keyset continuation works on these columns:
-// every one is NOT NULL.
-func keysetSafe(d *core.TableDef, cols []uint16) bool {
-	for _, c := range cols {
-		if d.Columns[c].Nullable {
-			return false
+// keysetCond renders "the rows after after" in the page order, expanded per
+// column so the Source can use it as an index range (P1):
+//
+//	a > x OR (a = x AND b > y) OR (a = x AND b = y AND id > z)
+//
+// with the operators flipped for backward scans. It is NULL-aware column by
+// column, following MySQL's order: NULL first ascending, last descending
+// (P2). With incl, the row equal to after is included too (keyless tables,
+// whose identical rows the pager skips by count).
+func keysetCond(d *core.TableDef, order []uint16, after []core.Value, dir core.Direction, incl bool) string {
+	names := rawCols(d, order)
+	eq := func(i int) string {
+		if after[i].Null {
+			return names[i] + " IS NULL"
 		}
+		return names[i] + " = " + Literal(d.Columns[order[i]], after[i])
 	}
-	return d.Identity != core.WholeRow
+	// past is "column i comes after after[i]", or "" when nothing does.
+	past := func(i int) string {
+		v, nullable := after[i], d.Columns[order[i]].Nullable
+		if dir == core.Backward {
+			if v.Null {
+				return "" // NULLs come last descending
+			}
+			c := names[i] + " < " + Literal(d.Columns[order[i]], v)
+			if nullable {
+				c = "(" + c + " OR " + names[i] + " IS NULL)"
+			}
+			return c
+		}
+		if v.Null {
+			return names[i] + " IS NOT NULL" // NULLs come first ascending
+		}
+		return names[i] + " > " + Literal(d.Columns[order[i]], v)
+	}
+	var ors []string
+	var prefix []string
+	for i := range after {
+		if p := past(i); p != "" {
+			ors = append(ors, strings.Join(append(append([]string(nil), prefix...), p), " AND "))
+		}
+		prefix = append(prefix, eq(i))
+	}
+	if incl {
+		ors = append(ors, strings.Join(prefix, " AND "))
+	}
+	if len(ors) == 0 {
+		return "FALSE"
+	}
+	if len(ors) == 1 {
+		return ors[0]
+	}
+	return "(" + strings.Join(ors, ") OR (") + ")"
 }
 
 // renderPage renders one page of a scan (renderPKPage and renderIndexPage of
 // doc 10 §4.1). after holds the order columns' values of the last row
-// delivered, for keyset continuation; offset is used when keyset is unsafe.
+// delivered; the page starts after it (with incl, at it).
 func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.KeyRange, after []core.Value,
-	offset int, pushed string, dir core.Direction, limit int, force bool) shaped {
+	incl bool, pushed string, dir core.Direction, limit int, force bool) shaped {
 	order := pageOrder(d, idx)
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
@@ -306,18 +350,11 @@ func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.
 		conds = append(conds, pushed)
 	}
 	if after != nil {
-		op := ">"
-		if dir == core.Backward {
-			op = "<"
-		}
-		conds = append(conds, lhs(rawCols(d, order))+" "+op+" "+tuple(d, order, after))
+		conds = append(conds, keysetCond(d, order, after, dir, incl))
 	}
 	sb.WriteString(where(conds))
 	sb.WriteString(orderBy(d, order, dir))
 	sb.WriteString(" LIMIT " + strconv.Itoa(limit))
-	if offset > 0 {
-		sb.WriteString(" OFFSET " + strconv.Itoa(offset))
-	}
 	return shaped{sql: sb.String(), shape: shape}
 }
 
