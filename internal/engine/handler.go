@@ -714,6 +714,21 @@ func (c *conn) statsReply(m *protocol.Stats) (proto.Message, error) {
 	for _, ix := range d.Indexes {
 		rep.Indexes = append(rep.Indexes, &protocol.IndexStats{Index: uint32(ix.ID), RecPerKey: st.RecPerKey[ix.ID]})
 	}
+	if m.WholeTableDelete {
+		// mysqld reads records right before delete_all_rows and reports it
+		// as the statement's affected rows (SD-1), so it must be exact.
+		s, err := c.session()
+		if err != nil {
+			return nil, err
+		}
+		n, declined, err := s.Count(d.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !declined {
+			rep.Records, rep.Estimated = n, false
+		}
+	}
 	return rep, nil
 }
 
