@@ -145,7 +145,10 @@ func (s *Server) connectSource(ctx context.Context) error {
 
 // Step 6: databases, tables, objects and accounts into the catalog and the account set.
 func (s *Server) discover(ctx context.Context) error {
-	s.proven = collations.For(mysqldRelease())
+	s.proven = collations.For(mysqldRelease()).Assume(s.cfg.CollationsUnderTest)
+	if len(s.cfg.CollationsUnderTest) > 0 {
+		log.Warn("collations under test are treated as proven; for the collation proof suite only", "collations", s.cfg.CollationsUnderTest)
+	}
 	d, err := discovery.New(s.src, s.proven, s.cfg.Source.Databases)
 	if err != nil {
 		return err

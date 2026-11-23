@@ -55,6 +55,18 @@ func For(release string) *Proven {
 	return p
 }
 
+// Assume treats collations as proven for order and equality, whatever the
+// release's entry says. It is for the collation proof suite only, which must
+// read the engine's image order and equality of a collation before it is
+// proven (vdb-mysql-engine#11, VDB_COLLATIONS_UNDER_TEST).
+func (p *Proven) Assume(colls []string) *Proven {
+	for _, c := range colls {
+		p.order[strings.ToLower(c)] = true
+		p.equality[strings.ToLower(c)] = true
+	}
+	return p
+}
+
 func binary(c string) bool {
 	c = strings.ToLower(c)
 	return c == "" || c == "binary" || strings.HasSuffix(c, "_bin")

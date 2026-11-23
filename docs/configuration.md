@@ -33,6 +33,35 @@ lower case without `VDB_`), then defaults. An invalid value stops start-up with 
 | `VDB_SOURCE_LOG_SIZE`, `VDB_SOURCE_LOG_FILE` | 10000, empty | The Source request log |
 | `VDB_LOG_FORMAT` | `json` | `json` or `text` |
 | `VDB_LOG_LEVEL` | `info` | `debug` adds debug-level logs (pushdown decisions, Source requests); environment only |
+| `VDB_COLLATIONS_UNDER_TEST` | empty | **Testing only.** Comma-separated collations treated as proven. Read the warning below before setting it |
 | `VDB_PLUGIN_DIR` | `/var/lib/vdb/plugins` | VDB plugins (none ship in v1) |
 | `VDB_MYSQLD_STOP_TIMEOUT`, `VDB_MYSQLD_RESTART_WINDOW` | 30s, 5m | `mysqld` shutdown; three crashes in the window stop the container |
 | `VDB_MYSQLD_SORT_BUFFER_SIZE` and the other `VDB_MYSQLD_*` sizes | from the class | Override one class value |
+
+## Warning: `VDB_COLLATIONS_UNDER_TEST`
+
+This setting exists for one job: the collation proof suite in vdb-tests
+(`runner collations`), which has to see VDB's own order and equality for a
+collation before that collation is proven. Do not set it anywhere else.
+
+For each collation it names, VDB trusts its sort images for that collation:
+- it reads indexes in image order, so mysqld skips its own sort;
+- it decides `=` and uniqueness by image equality, in unique checks, foreign
+  keys and lookups.
+
+If the images of a collation do not match MySQL's rules for that release,
+then with this setting on:
+- `ORDER BY` and range reads on its indexes can return rows in the wrong
+  order or miss rows;
+- a `UNIQUE` key can reject a value that is not a duplicate, or accept one
+  that is;
+- a foreign key can find a parent row that does not exist, or miss one that
+  does.
+
+None of these produce an error. The results are simply wrong.
+
+Without the setting, VDB uses only the collations proven for the release in
+`internal/collations/proven.yaml`, and lets mysqld sort and compare all
+others. VDB logs a warning at start-up whenever the setting is on. To prove a
+collation for real, run the suite and add its results to `proven.yaml` by
+pull request.
