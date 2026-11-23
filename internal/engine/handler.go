@@ -369,6 +369,17 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 			delete(c.scans, m.Scan)
 		}
 		return &protocol.Empty{}, nil
+	case protocol.OpUnlock:
+		m, err := decode[protocol.Unlock](body)
+		if err != nil {
+			return nil, err
+		}
+		s, err := c.session()
+		if err != nil {
+			return nil, err
+		}
+		c.unlockRow(s, core.TableID(m.Table), toRef(m.Ref))
+		return &protocol.Empty{}, nil
 	case protocol.OpLookup:
 		m, err := decode[protocol.Lookup](body)
 		if err != nil {

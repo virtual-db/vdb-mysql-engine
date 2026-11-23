@@ -40,6 +40,18 @@ func (c *conn) readLocks(s core.Session, m protocol.LockMode) *core.ReadLocks {
 	return rl
 }
 
+// unlockRow is handler::unlock_row (plan 03 L3): mysqld found that the row a
+// locking read just returned does not match the WHERE. At READ COMMITTED and
+// READ UNCOMMITTED InnoDB then releases the row's record lock, unless the
+// transaction held it before this statement; at REPEATABLE READ and
+// SERIALIZABLE it keeps it, and so does VDB.
+func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef) {
+	if c.iso.Gaps() {
+		return
+	}
+	c.h.api.Locks().Release(s, innodb.Row(t, ref.SourceKey, ref.PK.Image), c.stmtMark)
+}
+
 // intervalLocks locks every scanned range of a locking scan at REPEATABLE
 // READ and SERIALIZABLE: next-key locks over the merged index, stored as one
 // interval per range (D-69). An index whose order is not proven gets a
