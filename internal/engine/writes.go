@@ -8,6 +8,7 @@ package engine
 
 import (
 	"bytes"
+
 	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 
 	core "github.com/virtual-db/vdb-core"
@@ -21,23 +22,192 @@ func (c *conn) lock(s core.Session, r core.Resource, mode core.LockMode) error {
 	return c.h.api.Locks().Acquire(s, r, mode, c.onWait)
 }
 
-// readLocks returns the hooks of a locking read in protocol mode m, or nil
-// for a plain read. A unique lookup that finds nothing takes a gap lock at
-// REPEATABLE READ and SERIALIZABLE (D-64).
-func (c *conn) readLocks(s core.Session, m protocol.LockMode) *core.ReadLocks {
+// readLocks returns the hooks of a locking read in protocol mode m through
+// index idx of table t, reading cols, or nil for a plain read. A unique lookup
+// that finds nothing takes a gap lock at REPEATABLE READ and SERIALIZABLE
+// (D-64).
+//
+// inInterval says every row the read returns lies inside an interval lock
+// this transaction took for the read: a locking scan at REPEATABLE READ and
+// SERIALIZABLE (intervalLocks). Such a row takes no record lock of its own
+// (plan 03 L1) unless InnoDB would lock its clustered record too
+// (locksRecord); otherwise it only waits for other transactions' record locks
+// on it, and its interval blocks later writers through their probes
+// (probeEntries). Every row also probes other transactions' intervals on its
+// entry in idx, the only index the read goes through.
+func (c *conn) readLocks(s core.Session, m protocol.LockMode, t core.TableID, idx core.IndexID, cols core.ColumnSet, inInterval bool) *core.ReadLocks {
 	mode, ok := innodb.Record(m)
 	if !ok {
 		return nil
 	}
-	rl := &core.ReadLocks{Row: func(t core.TableID, key core.KeyImage) error {
-		return c.lock(s, core.Resource{Table: t, Point: key}, mode)
-	}}
+	rowMode := mode
+	if inInterval && !c.locksRecord(t, idx, cols, mode) {
+		rowMode = innodb.Wait(mode)
+	}
+	rl := &core.ReadLocks{
+		Row: func(t core.TableID, key core.KeyImage) error {
+			return c.lock(s, core.Resource{Table: t, Point: key}, rowMode)
+		},
+		Probe: func(t core.TableID, row core.Row, cols core.ColumnSet) error {
+			return c.probeEntries(s, t, row, cols, mode, only(idx))
+		},
+	}
 	if c.iso.Gaps() {
 		rl.Missing = func(t core.TableID, idx core.IndexID, img core.KeyImage) error {
 			return c.lock(s, innodb.Span(t, idx, core.ImageRange{Low: img, High: img, LowIncl: true, HighIncl: true}), innodb.Gap)
 		}
 	}
 	return rl
+}
+
+// locksRecord reports whether InnoDB locks the clustered record of each row a
+// locking read through index idx returns, besides the index entry: when idx
+// is a secondary index and the read is exclusive or needs a column that the
+// index entry (its columns plus the identity key's) does not hold. A read
+// through the identity key locks only that key's entries, which are the
+// clustered records. cols nil means every column.
+func (c *conn) locksRecord(t core.TableID, idx core.IndexID, cols core.ColumnSet, mode core.LockMode) bool {
+	d, ok := c.h.api.Catalog().Table(t)
+	if !ok {
+		return true
+	}
+	ix := d.Index(idx)
+	if ix == nil || (d.Identity != core.WholeRow && idx == d.Identity) {
+		return false
+	}
+	if mode == innodb.RecordX {
+		return true
+	}
+	have := make([]bool, len(d.Columns))
+	for _, col := range ix.Columns {
+		if int(col) < len(have) {
+			have[col] = true
+		}
+	}
+	for _, col := range d.IdentityColumns() {
+		if int(col) < len(have) {
+			have[col] = true
+		}
+	}
+	if cols == nil {
+		cols = make(core.ColumnSet, len(d.Columns))
+		for i := range cols {
+			cols[i] = uint16(i)
+		}
+	}
+	return !covered(have, cols)
+}
+
+// only selects index idx for probeEntries.
+func only(idx core.IndexID) func(core.IndexID) bool {
+	return func(i core.IndexID) bool { return i == idx }
+}
+
+// changed selects, for probeEntries, the indexes an update from oldRow to row
+// writes: the identity key, whose entry is the clustered record, and every
+// index with a column whose value changes.
+func changed(d *core.TableDef, oldRow, row core.Row) func(core.IndexID) bool {
+	return func(i core.IndexID) bool {
+		if d.Identity != core.WholeRow && i == d.Identity {
+			return true
+		}
+		ix := d.Index(i)
+		return ix == nil || !sameCols(oldRow, row, ix.Columns)
+	}
+}
+
+// probeEntries makes a record lock in mode on row wait for the interval
+// locks other transactions hold over the row's entries in the indexes want
+// selects, or every index when want is nil (vdb-mysql-engine#6): a row record
+// lock lives in its own key space, so without this probe a held range would
+// not block a writer that reaches one of its rows by another path. As on
+// InnoDB, a locking read probes only the index it reads through and a writer
+// every index entry it writes. It does nothing when no other transaction
+// holds an interval on the table. row holds the values of cols, or every
+// column when cols is nil. An index whose columns the read did not fetch is
+// probed whole: the record lock then waits for any interval on that index,
+// which is stricter than InnoDB, never looser.
+func (c *conn) probeEntries(s core.Session, t core.TableID, row core.Row, cols core.ColumnSet, mode core.LockMode, want func(core.IndexID) bool) error {
+	idxs := c.h.api.Locks().RangeIndexes(s, t)
+	if want != nil {
+		kept := idxs[:0:0]
+		for _, idx := range idxs {
+			if want(idx) {
+				kept = append(kept, idx)
+			}
+		}
+		idxs = kept
+	}
+	if len(idxs) == 0 {
+		return nil
+	}
+	d, ok := c.h.api.Catalog().Table(t)
+	if !ok {
+		return nil
+	}
+	full := row
+	have := make([]bool, len(d.Columns))
+	if cols == nil {
+		for i := range have {
+			have[i] = i < len(row)
+		}
+	} else {
+		full = make(core.Row, len(d.Columns))
+		for i := range full {
+			full[i] = core.Value{Null: true}
+		}
+		for i, col := range cols {
+			if int(col) < len(full) && i < len(row) {
+				full[col] = row[i]
+				have[col] = true
+			}
+		}
+	}
+	var ims []core.KeyImage
+	probe := innodb.EntryWait(mode)
+	for _, idx := range idxs {
+		ix := d.Index(idx)
+		r := core.Resource{Table: t, Index: idx, Range: &core.ImageRange{}}
+		if ix != nil && covered(have, ix.Columns) {
+			if ims == nil {
+				all, err := c.onImages(t, []core.Row{full})
+				if err != nil {
+					return err
+				}
+				if len(all) > 0 {
+					ims = all[0]
+				}
+			}
+			if img := imageAt(ims, idx); img != nil {
+				r = innodb.Point(t, idx, img)
+			}
+		}
+		if err := c.lock(s, r, probe); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func covered(have []bool, cols []uint16) bool {
+	for _, col := range cols {
+		if int(col) >= len(have) || !have[col] {
+			return false
+		}
+	}
+	return true
+}
+
+// unlockRow is handler::unlock_row (plan 03 L3): mysqld found that the row a
+// locking read just returned does not match the WHERE. At READ COMMITTED and
+// READ UNCOMMITTED InnoDB then releases the row's record lock, unless the
+// transaction held it before this statement; at REPEATABLE READ and
+// SERIALIZABLE it keeps it, and so does VDB.
+func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef) {
+	if c.iso.Gaps() {
+		return
+	}
+	c.h.api.Locks().Release(s, innodb.Row(t, ref.SourceKey, ref.PK.Image), c.stmtMark)
 }
 
 // deleteAll is a DELETE without WHERE (Source scaling plan 07, SD-1). It
@@ -149,7 +319,7 @@ func (c *conn) insertLocks(s core.Session, d *core.TableDef, row core.Row, ims [
 
 // fk returns the foreign-key checker for this connection.
 func (c *conn) fk(s core.Session) *fk.Checker {
-	return &fk.Checker{API: c.h.api, W: c, Images: c.onImages, Wait: c.onWait}
+	return &fk.Checker{API: c.h.api, W: c, Images: c.onImages, Wait: c.onWait, Probe: c.probeEntries}
 }
 
 // insertRows locks and checks each row, then inserts the rows that passed
@@ -230,6 +400,11 @@ func (c *conn) UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow
 		return err
 	}
 	d, ok := c.h.api.Catalog().Table(t)
+	if ok && oldRow != nil {
+		if err := c.probeEntries(s, t, oldRow, nil, innodb.RecordX, changed(&d, oldRow, row)); err != nil {
+			return err
+		}
+	}
 	if ok && d.Identity != core.WholeRow {
 		if img := imageAt(images, d.Identity); img != nil && !bytes.Equal(img, old.PK.Image) {
 			if err := c.lock(s, innodb.Row(t, nil, img), innodb.RecordX); err != nil {
@@ -258,6 +433,11 @@ func (c *conn) UpdateRow(s core.Session, t core.TableID, old core.RowRef, oldRow
 func (c *conn) DeleteRow(s core.Session, t core.TableID, old core.RowRef, oldRow core.Row, depth int) error {
 	if err := c.lock(s, innodb.Row(t, old.SourceKey, old.PK.Image), innodb.RecordX); err != nil {
 		return err
+	}
+	if oldRow != nil {
+		if err := c.probeEntries(s, t, oldRow, nil, innodb.RecordX, nil); err != nil {
+			return err
+		}
 	}
 	if d, ok := c.h.api.Catalog().Table(t); ok && (c.fkChecks || depth > 0) {
 		if err := c.fk(s).OnParentChange(s, &d, oldRow, nil, depth); err != nil {

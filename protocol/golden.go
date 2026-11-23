@@ -56,6 +56,7 @@ func Goldens() []Golden {
 		{"LookupNext", OpLookupNext, &LookupNext{Continuation: []byte{1, 2, 3}}},
 		{"Count", OpCount, &Count{Table: 1}},
 		{"Stats", OpStats, &Stats{Table: 1, Index: 0, Range: rng}},
+		{"Unlock", OpUnlock, &Unlock{Table: 1, Ref: ref}},
 		{"Insert", OpInsert, &Insert{Table: 1, Row: row("4", "dan"), Images: ims}},
 		{"InsertBatch", OpInsertBatch, &InsertBatch{Table: 1, Rows: []*Row{row("4", "dan")}, Images: []*Images{ims}}},
 		{"Update", OpUpdate, &Update{Table: 1, Old: ref, Row: row("1", "anna"), Images: ims}},

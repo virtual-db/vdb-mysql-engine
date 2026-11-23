@@ -28,14 +28,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/tidwall/btree v1.8.2 h1:mTY5iM4UTh2e80TG7RHDQQmnAY3xGNQA/DbU0olkhkA=
 github.com/tidwall/btree v1.8.2/go.mod h1:jBbTdUWhSZClZWoDg54VnvV7/54modSOzDN7VXftj1A=
-github.com/virtual-db/vdb-core v0.1.0-alpha.1 h1:B8ZgQ7Xk11DEJg4VSgr1T4cXoDEetjgLfv5z4qxokD8=
-github.com/virtual-db/vdb-core v0.1.0-alpha.1/go.mod h1:NxjVrhTfKJmOlJu5z3vLesGgijqJwHZqmnQ7FFCHIqk=
-github.com/virtual-db/vdb-core v0.1.0-alpha.3.0.20261123045046-2596568300f2 h1:l7UMD2FHQt7zGD33no9RQRWAKOBwJqNCy/l/OObE2Dw=
-github.com/virtual-db/vdb-core v0.1.0-alpha.3.0.20261123045046-2596568300f2/go.mod h1:hNb5o4woa8XtPRyvCcQh+1D8wc6BPfINd/SUdJ9fjqc=
-github.com/virtual-db/vdb-core v0.1.0-alpha.3.0.20261123115908-e3b16afd09b5 h1:n9xuLMcsNGhCFRRyUIhDXCrr2tyyerIcqDAIyCWNm70=
-github.com/virtual-db/vdb-core v0.1.0-alpha.3.0.20261123115908-e3b16afd09b5/go.mod h1:hNb5o4woa8XtPRyvCcQh+1D8wc6BPfINd/SUdJ9fjqc=
-github.com/virtual-db/vdb-core v0.1.0-alpha.3.0.20261123182503-af3807a99fbb h1:UVd3ErZgN7c/ADzTHfNgPUabwJKIj2DKnm/bOSwfJVU=
-github.com/virtual-db/vdb-core v0.1.0-alpha.3.0.20261123182503-af3807a99fbb/go.mod h1:hNb5o4woa8XtPRyvCcQh+1D8wc6BPfINd/SUdJ9fjqc=
+github.com/virtual-db/vdb-core v0.1.0-alpha.4 h1:RdcpCsC9Q05OBCxA3Mks3dhMssbzMcsWekDeALAvgNc=
+github.com/virtual-db/vdb-core v0.1.0-alpha.4/go.mod h1:hNb5o4woa8XtPRyvCcQh+1D8wc6BPfINd/SUdJ9fjqc=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 golang.org/x/net v0.60.0 h1:79p50tfZlm0J9YfoDsSi639qSXNGVwEzOPLCxM2FsYU=

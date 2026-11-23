@@ -6,14 +6,15 @@ package engine
 
 import (
 	"context"
-	"github.com/virtual-db/vdb-mysql-engine/internal/logx"
-	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"io"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/virtual-db/vdb-mysql-engine/internal/logx"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 
 	core "github.com/virtual-db/vdb-core"
 	"google.golang.org/protobuf/proto"
@@ -380,6 +381,17 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 			delete(c.scans, m.Scan)
 		}
 		return &protocol.Empty{}, nil
+	case protocol.OpUnlock:
+		m, err := decode[protocol.Unlock](body)
+		if err != nil {
+			return nil, err
+		}
+		s, err := c.session()
+		if err != nil {
+			return nil, err
+		}
+		c.unlockRow(s, core.TableID(m.Table), toRef(m.Ref))
+		return &protocol.Empty{}, nil
 	case protocol.OpLookup:
 		m, err := decode[protocol.Lookup](body)
 		if err != nil {
@@ -549,7 +561,7 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 		return nil, err
 	}
 	req := core.ScanRequest{Table: core.TableID(m.Table), Index: core.IndexID(m.Index), Ordered: m.Kind != protocol.ScanKind_SCAN_UNORDERED,
-		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock)}
+		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
 	if m.Backward {
 		req.Dir = core.Backward
 	}
@@ -661,7 +673,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock))
+	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
 	if err != nil {
 		return nil, err
 	}

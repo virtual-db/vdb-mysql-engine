@@ -31,6 +31,7 @@ const (
 	OpLookupNext    Op = 0x24
 	OpCount         Op = 0x25
 	OpStats         Op = 0x26
+	OpUnlock        Op = 0x27
 	OpInsert        Op = 0x30
 	OpInsertBatch   Op = 0x31
 	OpUpdate        Op = 0x32
@@ -86,8 +87,8 @@ var opNames = map[Op]string{
 	OpStmtRollback: "StmtRollback", OpCommit: "Commit", OpRollback: "Rollback", OpSavepoint: "Savepoint",
 	OpRollbackTo: "RollbackTo", OpRelease: "Release", OpSnapshot: "Snapshot", OpScanOpen: "ScanOpen",
 	OpScanNext: "ScanNext", OpScanClose: "ScanClose", OpLookup: "Lookup", OpLookupNext: "LookupNext",
-	OpCount: "Count", OpStats: "Stats", OpInsert: "Insert", OpInsertBatch: "InsertBatch", OpUpdate: "Update",
-	OpDelete: "Delete", OpAutoIncrement: "AutoIncrement", OpTruncate: "Truncate", OpDeleteAll: "DeleteAll", OpCatalog: "Catalog",
+	OpCount: "Count", OpStats: "Stats", OpUnlock: "Unlock", OpInsert: "Insert", OpInsertBatch: "InsertBatch", OpUpdate: "Update",
+	OpDelete: "Delete", OpAutoIncrement: "AutoIncrement", OpTruncate: "Truncate", OpCatalog: "Catalog",
 	OpAlter: "Alter", OpAlterRows: "AlterRows", OpAlterPut: "AlterPut", OpSessionEnd: "SessionEnd",
 	OpKill: "Kill", OpAuthBegin: "AuthBegin", OpAuthAnswer: "AuthAnswer", OpAuthPass: "AuthPass",
 	OpAuthAbort: "AuthAbort", OpRewrite: "Rewrite", OpPing: "Ping", OpDdlCaptured: "DdlCaptured",
