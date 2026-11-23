@@ -314,8 +314,10 @@ func keysetCond(d *core.TableDef, order []uint16, after []core.Value, dir core.D
 // renderPage renders one page of a scan (renderPKPage and renderIndexPage of
 // doc 10 §4.1). after holds the order columns' values of the last row
 // delivered; the page starts after it (with incl, at it).
+//
+// upto, when set, ends the page at that row inclusive (the chunk bound, P4).
 func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.KeyRange, after []core.Value,
-	incl bool, pushed string, dir core.Direction, limit int, force bool) shaped {
+	incl bool, upto []core.Value, pushed string, dir core.Direction, limit int, force bool) shaped {
 	order := pageOrder(d, idx)
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
@@ -327,6 +329,49 @@ func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.
 		sb.WriteString(" FORCE INDEX (" + Ident(ix.Name) + ")")
 		shape = ShapeIndexPage
 	}
+	conds := pageConds(d, idx, order, ranges, after, incl, dir)
+	if upto != nil {
+		conds = append(conds, keysetCond(d, order, upto, reverse(dir), true))
+	}
+	if pushed != "" {
+		conds = append(conds, pushed)
+	}
+	sb.WriteString(where(conds))
+	sb.WriteString(orderBy(d, order, dir))
+	sb.WriteString(" LIMIT " + strconv.Itoa(limit))
+	return shaped{sql: sb.String(), shape: shape}
+}
+
+func reverse(dir core.Direction) core.Direction {
+	if dir == core.Backward {
+		return core.Forward
+	}
+	return core.Backward
+}
+
+// renderBound renders the chunk bound of P4: the order columns of the row n
+// rows past after, read from the index alone (covering: the index's columns
+// and the identity), so the request examines about n index entries.
+func renderBound(d *core.TableDef, idx core.IndexID, ranges []core.KeyRange, after []core.Value, dir core.Direction, n int, force bool) shaped {
+	order := pageOrder(d, idx)
+	var sb strings.Builder
+	sb.WriteString("SELECT ")
+	sb.WriteString(strings.Join(rawCols(d, order), ", "))
+	sb.WriteString(" FROM ")
+	sb.WriteString(tableRef(d))
+	shape := ShapePKPage
+	if ix := d.Index(idx); ix != nil && force && !ix.Primary && !ix.AddedLocally {
+		sb.WriteString(" FORCE INDEX (" + Ident(ix.Name) + ")")
+		shape = ShapeIndexPage
+	}
+	sb.WriteString(where(pageConds(d, idx, order, ranges, after, false, dir)))
+	sb.WriteString(orderBy(d, order, dir))
+	sb.WriteString(" LIMIT 1 OFFSET " + strconv.Itoa(n))
+	return shaped{sql: sb.String(), shape: shape}
+}
+
+// pageConds renders a page's ranges and its start after the row after.
+func pageConds(d *core.TableDef, idx core.IndexID, order []uint16, ranges []core.KeyRange, after []core.Value, incl bool, dir core.Direction) []string {
 	var conds []string
 	if len(ranges) > 0 {
 		var ors []string
@@ -346,16 +391,10 @@ func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.
 			conds = append(conds, strings.Join(ors, " OR "))
 		}
 	}
-	if pushed != "" {
-		conds = append(conds, pushed)
-	}
 	if after != nil {
 		conds = append(conds, keysetCond(d, order, after, dir, incl))
 	}
-	sb.WriteString(where(conds))
-	sb.WriteString(orderBy(d, order, dir))
-	sb.WriteString(" LIMIT " + strconv.Itoa(limit))
-	return shaped{sql: sb.String(), shape: shape}
+	return conds
 }
 
 // renderKeyBatch renders one tagged request per key, joined with UNION ALL,

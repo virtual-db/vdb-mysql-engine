@@ -37,6 +37,7 @@ type Adapter struct {
 	bgPool   *sql.DB
 	catalog  core.Catalog
 	pushdown Pushdown
+	rowLen   func(d *core.TableDef) uint64 // the Source's average row length, or 0
 	Log      *Log
 	version  string
 
@@ -57,6 +58,10 @@ func New(cfg config.Source) *Adapter {
 
 // SetCatalog installs the catalog of record.
 func (a *Adapter) SetCatalog(c core.Catalog) { a.catalog = c }
+
+// SetRowLength installs the Source's average row length per table, for the
+// first page's byte cap (P3).
+func (a *Adapter) SetRowLength(f func(d *core.TableDef) uint64) { a.rowLen = f }
 
 // SetPushdown installs the pushdown reducer.
 func (a *Adapter) SetPushdown(p Pushdown) { a.pushdown = p }

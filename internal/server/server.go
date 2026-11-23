@@ -26,6 +26,7 @@ import (
 	"github.com/virtual-db/vdb-mysql-engine/internal/identity"
 	"github.com/virtual-db/vdb-mysql-engine/internal/login"
 	"github.com/virtual-db/vdb-mysql-engine/internal/metrics"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"github.com/virtual-db/vdb-mysql-engine/internal/pushdown"
 	"github.com/virtual-db/vdb-mysql-engine/internal/rebuild"
 	"github.com/virtual-db/vdb-mysql-engine/internal/schemapoll"
@@ -159,6 +160,15 @@ func (s *Server) discover(ctx context.Context) error {
 		return err
 	}
 	s.stats = stats.New(s.src, s.api, s.cfg.Source.BusyThreads)
+	s.src.SetRowLength(func(d *core.TableDef) uint64 {
+		if d.Source == nil {
+			return 0
+		}
+		if ts, ok := s.stats.Table(mysqldef.SourceDB(d.Source), d.Source.Table); ok {
+			return ts.AvgRowLen
+		}
+		return 0
+	})
 	for _, db := range s.dbs {
 		_ = s.stats.Refresh(ctx, db.Name)
 	}

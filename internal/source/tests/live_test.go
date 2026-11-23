@@ -1,6 +1,6 @@
 // Package source_test — tests/live_test.go
 //
-// Pages against a real MySQL (Source scaling plan P1, P2). Skipped unless
+// Pages against a real MySQL (Source scaling plan P1 to P4). Skipped unless
 // VDB_SOURCE_TEST_DSN names a MySQL 8.4 server the test may create the
 // database vdb_page_test on, for example:
 //
@@ -219,7 +219,7 @@ func TestLiveWalk(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, sqls, err := WalkPages(q, d, core.ColumnSet{0, 1, 2}, 1, dir, 997)
+		got, sqls, err := WalkPages(q, Walk{Table: d, Columns: core.ColumnSet{0, 1, 2}, Index: 1, Dir: dir, Limit: 997})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,7 +267,7 @@ func TestLiveKeylessDuplicates(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, limit := range []int{7, 25, 1000} {
-			got, sqls, err := WalkPages(q, d, core.ColumnSet{0, 1}, core.WholeRow, dir, limit)
+			got, sqls, err := WalkPages(q, Walk{Table: d, Columns: core.ColumnSet{0, 1}, Index: core.WholeRow, Dir: dir, Limit: limit})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -279,4 +279,113 @@ func TestLiveKeylessDuplicates(t *testing.T) {
 			sameRows(t, fmt.Sprintf("keyless dir %v limit %d", dir, limit), got, want)
 		}
 	}
+}
+
+// handlerReads wraps query so each request records how many index entries
+// the Source read for it.
+func handlerReads(t *testing.T, db *sql.DB, reads *[]int) func(string) ([][]core.Value, error) {
+	q := query(db)
+	return func(s string) ([][]core.Value, error) {
+		if _, err := db.Exec("FLUSH STATUS"); err != nil {
+			return nil, err
+		}
+		rows, err := q(s)
+		if err != nil {
+			return nil, err
+		}
+		st, err := q("SHOW SESSION STATUS WHERE Variable_name IN ('Handler_read_key', 'Handler_read_next', 'Handler_read_prev', 'Handler_read_first', 'Handler_read_last', 'Handler_read_rnd_next')")
+		if err != nil {
+			return nil, err
+		}
+		n := 0
+		for _, r := range st {
+			var x int
+			fmt.Sscan(string(r[1].B), &x)
+			n += x
+		}
+		*reads = append(*reads, n)
+		return rows, nil
+	}
+}
+
+// TestLiveSparsePushedCondition (P4): a pushed condition few rows match is
+// read one index chunk per request, never the rest of the index, and the
+// walk returns exactly the matching rows in order.
+func TestLiveSparsePushedCondition(t *testing.T) {
+	db := liveDB(t)
+	fillAB(t, db)
+	d := liveTable(abTable())
+	const cond = "`id` % 1000 = 0"
+	for _, dir := range []core.Direction{core.Forward, core.Backward} {
+		desc := ""
+		if dir == core.Backward {
+			desc = " DESC"
+		}
+		for _, idx := range []core.IndexID{0, 1} {
+			order := "id" + desc
+			if idx == 1 {
+				order = "a" + desc + ", b" + desc + ", id" + desc
+			}
+			want, err := query(db)("SELECT a, b, id FROM vdb_page_test.t WHERE " + cond + " ORDER BY " + order)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var reads []int
+			got, sqls, err := WalkPages(handlerReads(t, db, &reads), Walk{Table: d, Columns: core.ColumnSet{0, 1, 2},
+				Index: idx, Dir: dir, Limit: 100, Pushed: cond, Chunk: 1000})
+			if err != nil {
+				t.Fatal(err)
+			}
+			name := fmt.Sprintf("sparse idx %d dir %v", idx, dir)
+			sameRows(t, name, got, want)
+			most := 0
+			for i, s := range sqls {
+				if strings.Contains(s, "OFFSET") && !strings.Contains(s, "LIMIT 1 OFFSET") {
+					t.Fatalf("%s: page with OFFSET: %s", name, s)
+				}
+				if reads[i] > most {
+					most = reads[i]
+				}
+			}
+			t.Logf("%s: %d requests, most index entries read by one: %d", name, len(sqls), most)
+			if most > 2100 {
+				t.Fatalf("%s: one request read %d index entries for chunks of 1000", name, most)
+			}
+			if len(sqls) < 30 {
+				t.Fatalf("%s: %d requests; the walk was not chunked", name, len(sqls))
+			}
+		}
+	}
+}
+
+// TestLiveByteCappedPages (P3): with a byte cap, pages shrink to about the
+// cap and the walk still returns every row.
+func TestLiveByteCappedPages(t *testing.T) {
+	db := liveDB(t)
+	fillAB(t, db)
+	d := liveTable(abTable())
+	q := query(db)
+	want, err := q("SELECT a, b, id FROM vdb_page_test.t ORDER BY id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sizes []int
+	counting := func(s string) ([][]core.Value, error) {
+		rows, err := q(s)
+		sizes = append(sizes, len(rows))
+		return rows, err
+	}
+	got, sqls, err := WalkPages(counting, Walk{Table: d, Columns: core.ColumnSet{0, 1, 2}, Index: 0, Dir: core.Forward,
+		Limit: 5000, MaxBytes: 4096})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameRows(t, "byte capped", got, want)
+	// Rows are about 12 bytes here, so a 4 KiB page holds a few hundred.
+	for i, n := range sizes[1:] {
+		if n > 1000 {
+			t.Fatalf("page %d held %d rows under a 4 KiB cap:\n%s", i+1, n, sqls[i+1])
+		}
+	}
+	t.Logf("%d pages, first %d rows, second %d rows", len(sizes), sizes[0], sizes[1])
 }

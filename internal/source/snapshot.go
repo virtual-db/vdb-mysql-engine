@@ -271,8 +271,13 @@ func (s *snapshot) Scan(req core.SourceScan) (core.SourceCursor, error) {
 		idx = d.Identity
 	}
 	order := pageOrder(d, idx)
-	return &pager{s: s, d: d, p: project(d, req.Columns), req: req, idx: idx, pushed: pushed, none: none,
-		order: order, keyless: d.Identity == core.WholeRow, limit: s.a.cfg.BatchRows}, nil
+	c := &pager{s: s, d: d, p: project(d, req.Columns), req: req, idx: idx, pushed: pushed, none: none,
+		order: order, keyless: d.Identity == core.WholeRow, limit: s.a.cfg.BatchRows, maxBytes: s.a.cfg.BatchBytes,
+		chunk: s.a.cfg.BatchRows}
+	if s.a.rowLen != nil {
+		c.rowBytes = int(s.a.rowLen(d))
+	}
+	return c, nil
 }
 
 // pager reads one page per Next; each page is read to its end before the
@@ -295,28 +300,104 @@ type pager struct {
 	dup     int // rows identical to after already delivered (keyless)
 	limit   int
 	done    bool
+
+	// P3: a page's rows are also capped by maxBytes over the estimated row
+	// size: the Source's average row length at first, then the last page's.
+	maxBytes int
+	rowBytes int
+
+	// P4: with a pushed condition, a page also stops at the chunk bound, the
+	// row chunk rows past after on the index, so no request examines more
+	// than about one chunk however few rows the condition matches.
+	chunk   int
+	bounded bool         // the current chunk's bound has been read
+	bound   []core.Value // nil: the current chunk runs to the end
 }
 
-func (c *pager) Next(maxRows int) (core.SourceRows, error) {
-	if c.done || c.none {
-		return core.SourceRows{}, io.EOF
-	}
+// pageLimit is the next page's row limit: the smaller of VDB_BATCH_ROWS (or
+// what the caller asked) and VDB_BATCH_BYTES over the estimated row size.
+func (c *pager) pageLimit(maxRows int) int {
 	limit := c.limit
 	if maxRows > 0 && maxRows < limit {
 		limit = maxRows
 	}
-	sh, base, skip := c.page(limit)
-	raw, err := c.s.run(c.d, sh)
-	if err != nil {
-		return core.SourceRows{}, err
+	if c.maxBytes > 0 && c.rowBytes > 0 {
+		if n := c.maxBytes / c.rowBytes; n < limit {
+			limit = n
+		}
 	}
-	trimmed, done := c.take(raw, base, limit, skip)
-	c.done = done
-	out := fill(c.d, c.p, trimmed, 0)
-	if len(out.Rows) == 0 && c.done {
-		return out, io.EOF
+	if limit < 1 {
+		limit = 1
 	}
-	return out, nil
+	return limit
+}
+
+// observe updates the row size estimate from a page: rows and their bytes.
+func (c *pager) observe(rows [][]core.Value) {
+	if len(rows) == 0 {
+		return
+	}
+	n := 0
+	for _, r := range rows {
+		for _, v := range r {
+			n += len(v.B) + 1
+		}
+	}
+	c.rowBytes = (n + len(rows) - 1) / len(rows)
+}
+
+// chunked reports whether pages of this scan stop at chunk bounds: those
+// with a pushed condition on a table with a key. A keyless table's rows can
+// be identical across a bound, so it keeps single requests.
+func (c *pager) chunked() bool { return c.pushed != "" && !c.keyless && c.chunk > 0 }
+
+func (c *pager) Next(maxRows int) (core.SourceRows, error) {
+	raw, err := c.next(maxRows, func(sh shaped) ([][]core.Value, error) { return c.s.run(c.d, sh) })
+	out := fill(c.d, c.p, raw, 0)
+	if err == io.EOF && len(out.Rows) > 0 {
+		return out, nil
+	}
+	return out, err
+}
+
+// next reads the next page through run and returns its rows (the
+// projection only); io.EOF once the scan is done and nothing is left.
+func (c *pager) next(maxRows int, run func(shaped) ([][]core.Value, error)) ([][]core.Value, error) {
+	if c.done || c.none {
+		return nil, io.EOF
+	}
+	for {
+		limit := c.pageLimit(maxRows)
+		if c.chunked() && !c.bounded {
+			b, err := run(renderBound(c.d, c.idx, c.req.Ranges, c.after, c.req.Dir, c.chunk, c.req.Ordered))
+			if err != nil {
+				return nil, err
+			}
+			c.bound, c.bounded = nil, true
+			if len(b) > 0 {
+				c.bound = b[0]
+			}
+		}
+		sh, base, skip := c.page(limit)
+		raw, err := run(sh)
+		if err != nil {
+			return nil, err
+		}
+		trimmed, done := c.take(raw, base, limit, skip)
+		c.observe(trimmed)
+		if done && c.bound != nil {
+			// The chunk is read; the scan goes on after its bound.
+			c.after, c.bound, c.bounded, done = c.bound, nil, false, false
+		}
+		c.done = done
+		if len(trimmed) == 0 && c.done {
+			return nil, io.EOF
+		}
+		if len(trimmed) > 0 || c.done {
+			return trimmed, nil
+		}
+		// An empty chunk: the next request reads the next one.
+	}
 }
 
 // page renders the next page: the projection, then the order columns for
@@ -330,7 +411,7 @@ func (c *pager) page(limit int) (sh shaped, base, skip int) {
 	if incl {
 		skip = c.dup
 	}
-	return renderPage(c.d, p, c.idx, c.req.Ranges, c.after, incl, c.pushed, c.req.Dir, limit+skip, c.req.Ordered), base, skip
+	return renderPage(c.d, p, c.idx, c.req.Ranges, c.after, incl, c.bound, c.pushed, c.req.Dir, limit+skip, c.req.Ordered), base, skip
 }
 
 // take records where the page ended and returns its new rows without the
@@ -363,31 +444,48 @@ func (c *pager) take(raw [][]core.Value, base, limit, skip int) ([][]core.Value,
 	return trimmed, done
 }
 
-// WalkPages reads a whole scan of d on index idx in direction dir, limit rows
-// per page, through query, exactly as a scan's pager would; for tests
-// against a real Source.
-func WalkPages(query func(sql string) ([][]core.Value, error), d *core.TableDef, cols core.ColumnSet, idx core.IndexID,
-	dir core.Direction, limit int) ([][]core.Value, []string, error) {
-	order := pageOrder(d, idx)
-	c := &pager{d: d, p: project(d, cols), req: core.SourceScan{Table: d.ID, Index: idx, Dir: dir, Ordered: true, Columns: cols},
-		idx: idx, order: order, keyless: d.Identity == core.WholeRow, limit: limit}
+// Walk describes a scan for WalkPages.
+type Walk struct {
+	Table    *core.TableDef
+	Columns  core.ColumnSet
+	Index    core.IndexID
+	Dir      core.Direction
+	Limit    int    // VDB_BATCH_ROWS
+	MaxBytes int    // VDB_BATCH_BYTES (0: none)
+	Pushed   string // a pushed condition, already reduced
+	Chunk    int    // the chunk size of P4 (0: VDB_BATCH_ROWS)
+}
+
+// WalkPages reads a whole scan through query, request by request, exactly
+// as a scan's pager would, and returns the rows, every SQL statement sent and
+// each page's row count; for tests against a real Source.
+func WalkPages(query func(sql string) ([][]core.Value, error), w Walk) ([][]core.Value, []string, error) {
+	d := w.Table
+	chunk := w.Chunk
+	if chunk == 0 {
+		chunk = w.Limit
+	}
+	c := &pager{d: d, p: project(d, w.Columns), req: core.SourceScan{Table: d.ID, Index: w.Index, Dir: w.Dir, Ordered: true, Columns: w.Columns},
+		idx: w.Index, order: pageOrder(d, w.Index), keyless: d.Identity == core.WholeRow, limit: w.Limit,
+		maxBytes: w.MaxBytes, pushed: w.Pushed, chunk: chunk}
 	var rows [][]core.Value
 	var sqls []string
-	for {
-		sh, base, skip := c.page(limit)
+	run := func(sh shaped) ([][]core.Value, error) {
 		sqls = append(sqls, sh.sql)
-		raw, err := query(sh.sql)
-		if err != nil {
-			return nil, sqls, err
+		if len(sqls) > 100000 {
+			return nil, fmt.Errorf("WalkPages: no progress")
 		}
-		trimmed, done := c.take(raw, base, limit, skip)
-		rows = append(rows, trimmed...)
-		if done {
+		return query(sh.sql)
+	}
+	for {
+		out, err := c.next(0, run)
+		if err == io.EOF {
 			return rows, sqls, nil
 		}
-		if len(sqls) > 100000 {
-			return rows, sqls, fmt.Errorf("WalkPages: no progress")
+		if err != nil {
+			return rows, sqls, err
 		}
+		rows = append(rows, out...)
 	}
 }
 
@@ -396,7 +494,7 @@ func (c *pager) Close() error { c.done = true; return nil }
 // PageSQL renders the SQL of the page a scan reads after the row after
 // (inclusive with incl), in direction dir; for tests of continuation.
 func PageSQL(d *core.TableDef, cols core.ColumnSet, idx core.IndexID, after []core.Value, incl bool, dir core.Direction, limit int) string {
-	return renderPage(d, project(d, cols), idx, nil, after, incl, "", dir, limit, true).sql
+	return renderPage(d, project(d, cols), idx, nil, after, incl, nil, "", dir, limit, true).sql
 }
 
 // Lookup answers keys on an index in batches of vdb_lookup_batch keys.

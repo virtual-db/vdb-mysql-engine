@@ -27,7 +27,6 @@ type Source struct {
 	MaxConnections int
 	ConnectWait    time.Duration
 	RequestTimeout time.Duration
-	RequestMaxRows int
 	MaxSourceRows  int64
 	RetryWindow    time.Duration
 	Snapshot       bool
@@ -244,7 +243,6 @@ func LoadFrom(env func(string) (string, bool), readFile func(string) ([]byte, er
 	s.MaxConnections = l.integer(&e, "source_max_connections", class.SourceMaxConnections)
 	s.ConnectWait = l.duration(&e, "source_connect_wait", 5*time.Second)
 	s.RequestTimeout = l.duration(&e, "source_request_timeout", 30*time.Second)
-	s.RequestMaxRows = l.integer(&e, "source_request_max_rows", 100000)
 	s.MaxSourceRows = int64(l.integer(&e, "max_source_rows", 0))
 	s.RetryWindow = l.duration(&e, "source_retry_window", 10*time.Second)
 	s.Snapshot = l.onOff(&e, "source_snapshot", true)
