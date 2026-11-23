@@ -2,4 +2,27 @@
 # equality (implementation plan doc 12 §4.3), written by the collation suite
 # in vdb-tests (doc 15 §5) and committed by pull request. A release not in
 # this file proves only binary collations and columns without a collation.
-releases: {}
+#
+# 8.4.13: vdb-tests results/collations/8.4.13 (2026-11-23), all nine pass.
+releases:
+  "8.4.13":
+    order:
+      - utf8mb4_0900_ai_ci
+      - utf8mb4_0900_as_cs
+      - utf8mb4_0900_as_ci
+      - utf8mb4_general_ci
+      - utf8mb4_unicode_ci
+      - utf8mb4_unicode_520_ci
+      - utf8mb3_general_ci
+      - latin1_swedish_ci
+      - ascii_general_ci
+    equality:
+      - utf8mb4_0900_ai_ci
+      - utf8mb4_0900_as_cs
+      - utf8mb4_0900_as_ci
+      - utf8mb4_general_ci
+      - utf8mb4_unicode_ci
+      - utf8mb4_unicode_520_ci
+      - utf8mb3_general_ci
+      - latin1_swedish_ci
+      - ascii_general_ci

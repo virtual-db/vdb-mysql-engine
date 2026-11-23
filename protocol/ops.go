@@ -38,6 +38,7 @@ const (
 	OpDelete        Op = 0x33
 	OpAutoIncrement Op = 0x34
 	OpTruncate      Op = 0x35
+	OpDeleteAll     Op = 0x36
 	OpCatalog       Op = 0x40
 	OpAlter         Op = 0x41
 	OpAlterRows     Op = 0x42

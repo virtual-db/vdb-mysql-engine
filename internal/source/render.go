@@ -256,22 +256,68 @@ func pageOrder(d *core.TableDef, idx core.IndexID) []uint16 {
 	return cols
 }
 
-// keysetSafe reports whether keyset continuation works on these columns:
-// every one is NOT NULL.
-func keysetSafe(d *core.TableDef, cols []uint16) bool {
-	for _, c := range cols {
-		if d.Columns[c].Nullable {
-			return false
+// keysetCond renders "the rows after after" in the page order, expanded per
+// column so the Source can use it as an index range (P1):
+//
+//	a > x OR (a = x AND b > y) OR (a = x AND b = y AND id > z)
+//
+// with the operators flipped for backward scans. It is NULL-aware column by
+// column, following MySQL's order: NULL first ascending, last descending
+// (P2). With incl, the row equal to after is included too (keyless tables,
+// whose identical rows the pager skips by count).
+func keysetCond(d *core.TableDef, order []uint16, after []core.Value, dir core.Direction, incl bool) string {
+	names := rawCols(d, order)
+	eq := func(i int) string {
+		if after[i].Null {
+			return names[i] + " IS NULL"
 		}
+		return names[i] + " = " + Literal(d.Columns[order[i]], after[i])
 	}
-	return d.Identity != core.WholeRow
+	// past is "column i comes after after[i]", or "" when nothing does.
+	past := func(i int) string {
+		v, nullable := after[i], d.Columns[order[i]].Nullable
+		if dir == core.Backward {
+			if v.Null {
+				return "" // NULLs come last descending
+			}
+			c := names[i] + " < " + Literal(d.Columns[order[i]], v)
+			if nullable {
+				c = "(" + c + " OR " + names[i] + " IS NULL)"
+			}
+			return c
+		}
+		if v.Null {
+			return names[i] + " IS NOT NULL" // NULLs come first ascending
+		}
+		return names[i] + " > " + Literal(d.Columns[order[i]], v)
+	}
+	var ors []string
+	var prefix []string
+	for i := range after {
+		if p := past(i); p != "" {
+			ors = append(ors, strings.Join(append(append([]string(nil), prefix...), p), " AND "))
+		}
+		prefix = append(prefix, eq(i))
+	}
+	if incl {
+		ors = append(ors, strings.Join(prefix, " AND "))
+	}
+	if len(ors) == 0 {
+		return "FALSE"
+	}
+	if len(ors) == 1 {
+		return ors[0]
+	}
+	return "(" + strings.Join(ors, ") OR (") + ")"
 }
 
 // renderPage renders one page of a scan (renderPKPage and renderIndexPage of
 // doc 10 §4.1). after holds the order columns' values of the last row
-// delivered, for keyset continuation; offset is used when keyset is unsafe.
+// delivered; the page starts after it (with incl, at it).
+//
+// upto, when set, ends the page at that row inclusive (the chunk bound, P4).
 func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.KeyRange, after []core.Value,
-	offset int, pushed string, dir core.Direction, limit int, force bool) shaped {
+	incl bool, upto []core.Value, pushed string, dir core.Direction, limit int, force bool) shaped {
 	order := pageOrder(d, idx)
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
@@ -283,6 +329,49 @@ func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.
 		sb.WriteString(" FORCE INDEX (" + Ident(ix.Name) + ")")
 		shape = ShapeIndexPage
 	}
+	conds := pageConds(d, idx, order, ranges, after, incl, dir)
+	if upto != nil {
+		conds = append(conds, keysetCond(d, order, upto, reverse(dir), true))
+	}
+	if pushed != "" {
+		conds = append(conds, pushed)
+	}
+	sb.WriteString(where(conds))
+	sb.WriteString(orderBy(d, order, dir))
+	sb.WriteString(" LIMIT " + strconv.Itoa(limit))
+	return shaped{sql: sb.String(), shape: shape}
+}
+
+func reverse(dir core.Direction) core.Direction {
+	if dir == core.Backward {
+		return core.Forward
+	}
+	return core.Backward
+}
+
+// renderBound renders the chunk bound of P4: the order columns of the row n
+// rows past after, read from the index alone (covering: the index's columns
+// and the identity), so the request examines about n index entries.
+func renderBound(d *core.TableDef, idx core.IndexID, ranges []core.KeyRange, after []core.Value, dir core.Direction, n int, force bool) shaped {
+	order := pageOrder(d, idx)
+	var sb strings.Builder
+	sb.WriteString("SELECT ")
+	sb.WriteString(strings.Join(rawCols(d, order), ", "))
+	sb.WriteString(" FROM ")
+	sb.WriteString(tableRef(d))
+	shape := ShapePKPage
+	if ix := d.Index(idx); ix != nil && force && !ix.Primary && !ix.AddedLocally {
+		sb.WriteString(" FORCE INDEX (" + Ident(ix.Name) + ")")
+		shape = ShapeIndexPage
+	}
+	sb.WriteString(where(pageConds(d, idx, order, ranges, after, false, dir)))
+	sb.WriteString(orderBy(d, order, dir))
+	sb.WriteString(" LIMIT 1 OFFSET " + strconv.Itoa(n))
+	return shaped{sql: sb.String(), shape: shape}
+}
+
+// pageConds renders a page's ranges and its start after the row after.
+func pageConds(d *core.TableDef, idx core.IndexID, order []uint16, ranges []core.KeyRange, after []core.Value, incl bool, dir core.Direction) []string {
 	var conds []string
 	if len(ranges) > 0 {
 		var ors []string
@@ -302,35 +391,48 @@ func renderPage(d *core.TableDef, p projection, idx core.IndexID, ranges []core.
 			conds = append(conds, strings.Join(ors, " OR "))
 		}
 	}
-	if pushed != "" {
-		conds = append(conds, pushed)
-	}
 	if after != nil {
-		op := ">"
-		if dir == core.Backward {
-			op = "<"
-		}
-		conds = append(conds, lhs(rawCols(d, order))+" "+op+" "+tuple(d, order, after))
+		conds = append(conds, keysetCond(d, order, after, dir, incl))
 	}
-	sb.WriteString(where(conds))
-	sb.WriteString(orderBy(d, order, dir))
-	sb.WriteString(" LIMIT " + strconv.Itoa(limit))
-	if offset > 0 {
-		sb.WriteString(" OFFSET " + strconv.Itoa(offset))
-	}
-	return shaped{sql: sb.String(), shape: shape}
+	return conds
 }
 
-// renderKeyBatch renders one tagged request per key, joined with UNION ALL,
-// so every row names the key it answers: `SELECT 0 AS vdb_k, cols FROM t
-// WHERE (k) = (v) UNION ALL ...` (the IN-list shape with exact key indexes).
-func renderKeyBatch(d *core.TableDef, p projection, cols []uint16, keys [][]core.Value, shape string) shaped {
-	var parts []string
+// keyPage is one key's part of a key request: the key, the row it continues
+// after (inclusive with incl, for keyless tables), and its row limit.
+type keyPage struct {
+	vals  []core.Value
+	after []core.Value
+	incl  bool
+	limit int
+}
+
+// renderKeyPages renders one tagged part per key, joined with UNION ALL, so
+// every row names the key it answers; each part is ordered by order (the
+// identity) and limited, and continues after its keyset (K2):
+//
+//	(SELECT 0 AS vdb_k, cols FROM t WHERE (k) = (v) [AND after] ORDER BY id LIMIT n)
+//	UNION ALL ... ORDER BY vdb_k, id
+//
+// The outer ORDER BY keeps each key's rows together and in order, so the
+// last row of a full part is its keyset for the next request.
+func renderKeyPages(d *core.TableDef, p projection, cols []uint16, order []uint16, keys []keyPage, shape string) shaped {
+	ocols := strings.Join(rawCols(d, order), ", ")
+	parts := make([]string, len(keys))
 	for i, k := range keys {
-		c := keyEq(d, cols, k)
-		parts = append(parts, "(SELECT "+strconv.Itoa(i)+" AS vdb_k, "+strings.Join(p.exprs, ", ")+" FROM "+tableRef(d)+" WHERE "+c+")")
+		c := keyEq(d, cols, k.vals)
+		if k.after != nil {
+			c += " AND (" + keysetCond(d, order, k.after, core.Forward, k.incl) + ")"
+		}
+		parts[i] = "(SELECT " + strconv.Itoa(i) + " AS vdb_k, " + strings.Join(p.exprs, ", ") + " FROM " + tableRef(d) +
+			" WHERE " + c + " ORDER BY " + ocols + " LIMIT " + strconv.Itoa(k.limit) + ")"
 	}
-	return shaped{sql: strings.Join(parts, " UNION ALL "), shape: shape}
+	// The outer sort names result positions: 1 is vdb_k, the order columns
+	// are the projection's last ones.
+	pos := []string{"1"}
+	for i := range order {
+		pos = append(pos, strconv.Itoa(2+len(p.exprs)-len(order)+i))
+	}
+	return shaped{sql: strings.Join(parts, " UNION ALL ") + " ORDER BY " + strings.Join(pos, ", "), shape: shape}
 }
 
 // keyEq matches one exact key. A handler key lookup matches NULL key parts

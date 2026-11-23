@@ -8,6 +8,7 @@ package engine
 
 import (
 	"bytes"
+
 	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 
 	core "github.com/virtual-db/vdb-core"

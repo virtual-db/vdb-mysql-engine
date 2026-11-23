@@ -14,11 +14,12 @@
 package protocol
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -2738,10 +2739,15 @@ type Stats struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Table uint32                 `protobuf:"varint,1,opt,name=table,proto3" json:"table,omitempty"`
 	// When range is set, records_in_range is asked for it on this index.
-	Index         uint32 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
-	Range         *Range `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Index uint32 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	Range *Range `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
+	// whole_table_delete says the statement is a single-table DELETE of every
+	// row (no WHERE, or a constant true one, and no LIMIT), as vdb.so reads it
+	// from mysqld's parse. mysqld reports records as the affected-rows count
+	// of delete_all_rows, so vdb-mysql answers with an exact count when it can.
+	WholeTableDelete bool `protobuf:"varint,5,opt,name=whole_table_delete,json=wholeTableDelete,proto3" json:"whole_table_delete,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Stats) Reset() {
@@ -2793,6 +2799,13 @@ func (x *Stats) GetRange() *Range {
 		return x.Range
 	}
 	return nil
+}
+
+func (x *Stats) GetWholeTableDelete() bool {
+	if x != nil {
+		return x.WholeTableDelete
+	}
+	return false
 }
 
 type IndexStats struct {
@@ -3437,6 +3450,108 @@ func (x *Truncate) GetTable() uint32 {
 		return x.Table
 	}
 	return 0
+}
+
+// DeleteAll (vdb.so handler::delete_all_rows) is a DELETE without WHERE: the
+// table is detached from the Source like TRUNCATE, but inside the
+// transaction and keeping AUTO_INCREMENT. Reply: DeleteAllReply.
+type DeleteAll struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Table         uint32                 `protobuf:"varint,1,opt,name=table,proto3" json:"table,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAll) Reset() {
+	*x = DeleteAll{}
+	mi := &file_vdb_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAll) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAll) ProtoMessage() {}
+
+func (x *DeleteAll) ProtoReflect() protoreflect.Message {
+	mi := &file_vdb_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAll.ProtoReflect.Descriptor instead.
+func (*DeleteAll) Descriptor() ([]byte, []int) {
+	return file_vdb_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *DeleteAll) GetTable() uint32 {
+	if x != nil {
+		return x.Table
+	}
+	return 0
+}
+
+// DeleteAllReply: deleted is the affected-rows count. declined means nothing
+// was changed and vdb.so lets mysqld delete row by row (the table has
+// foreign-key children to check or cascade, or its row count was declined).
+type DeleteAllReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Deleted       uint64                 `protobuf:"varint,1,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	Declined      bool                   `protobuf:"varint,2,opt,name=declined,proto3" json:"declined,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteAllReply) Reset() {
+	*x = DeleteAllReply{}
+	mi := &file_vdb_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteAllReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAllReply) ProtoMessage() {}
+
+func (x *DeleteAllReply) ProtoReflect() protoreflect.Message {
+	mi := &file_vdb_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAllReply.ProtoReflect.Descriptor instead.
+func (*DeleteAllReply) Descriptor() ([]byte, []int) {
+	return file_vdb_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *DeleteAllReply) GetDeleted() uint64 {
+	if x != nil {
+		return x.Deleted
+	}
+	return 0
+}
+
+func (x *DeleteAllReply) GetDeclined() bool {
+	if x != nil {
+		return x.Declined
+	}
+	return false
 }
 
 type ColumnDef struct {
@@ -5249,12 +5364,13 @@ const file_vdb_proto_rawDesc = "" +
 	"\n" +
 	"CountReply\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\x04R\x05count\x12\x1a\n" +
-	"\bdeclined\x18\x02 \x01(\bR\bdeclined\"U\n" +
+	"\bdeclined\x18\x02 \x01(\bR\bdeclined\"\x83\x01\n" +
 	"\x05Stats\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\rR\x05table\x12\x14\n" +
 	"\x05index\x18\x03 \x01(\rR\x05index\x12 \n" +
 	"\x05range\x18\x04 \x01(\v2\n" +
-	".vdb.RangeR\x05range\"B\n" +
+	".vdb.RangeR\x05range\x12,\n" +
+	"\x12whole_table_delete\x18\x05 \x01(\bR\x10wholeTableDelete\"B\n" +
 	"\n" +
 	"IndexStats\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x1e\n" +
@@ -5300,7 +5416,12 @@ const file_vdb_proto_rawDesc = "" +
 	"\x05first\x18\x01 \x01(\x04R\x05first\x12\x18\n" +
 	"\agranted\x18\x02 \x01(\x04R\agranted\" \n" +
 	"\bTruncate\x12\x14\n" +
-	"\x05table\x18\x01 \x01(\rR\x05table\"\xd5\x02\n" +
+	"\x05table\x18\x01 \x01(\rR\x05table\"!\n" +
+	"\tDeleteAll\x12\x14\n" +
+	"\x05table\x18\x01 \x01(\rR\x05table\"F\n" +
+	"\x0eDeleteAllReply\x12\x18\n" +
+	"\adeleted\x18\x01 \x01(\x04R\adeleted\x12\x1a\n" +
+	"\bdeclined\x18\x02 \x01(\bR\bdeclined\"\xd5\x02\n" +
 	"\tColumnDef\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +

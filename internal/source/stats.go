@@ -59,7 +59,7 @@ func (a *Adapter) ReadTableStats(ctx context.Context, db string) (map[string]*Ta
 // index: one EXPLAIN FORMAT=JSON on the background pool.
 func (a *Adapter) ExplainRange(ctx context.Context, d *core.TableDef, idx core.IndexID, r core.KeyRange) (uint64, error) {
 	p := project(d, nil)
-	sh := renderPage(d, p, idx, []core.KeyRange{r}, nil, 0, "", core.Forward, 1000000000, true)
+	sh := renderPage(d, p, idx, []core.KeyRange{r}, nil, false, nil, "", core.Forward, 1000000000, true)
 	rows, err := a.run(ctx, a.bgPool, 0, "", d, renderExplain(sh))
 	if err != nil || len(rows) == 0 {
 		return 0, err

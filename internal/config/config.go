@@ -27,7 +27,6 @@ type Source struct {
 	MaxConnections int
 	ConnectWait    time.Duration
 	RequestTimeout time.Duration
-	RequestMaxRows int
 	MaxSourceRows  int64
 	RetryWindow    time.Duration
 	Snapshot       bool
@@ -81,6 +80,10 @@ type Config struct {
 	Socket           string // the plug-in protocol socket
 	MysqldSocket     string
 	Version          string
+	// CollationsUnderTest are treated as proven for order and equality. Only
+	// the collation proof suite in vdb-tests sets it, to read the engine's
+	// own image order and equality before a collation is proven.
+	CollationsUnderTest []string
 }
 
 // lookup reads a setting: environment variable, then YAML, then empty.
@@ -244,7 +247,6 @@ func LoadFrom(env func(string) (string, bool), readFile func(string) ([]byte, er
 	s.MaxConnections = l.integer(&e, "source_max_connections", class.SourceMaxConnections)
 	s.ConnectWait = l.duration(&e, "source_connect_wait", 5*time.Second)
 	s.RequestTimeout = l.duration(&e, "source_request_timeout", 30*time.Second)
-	s.RequestMaxRows = l.integer(&e, "source_request_max_rows", 100000)
 	s.MaxSourceRows = int64(l.integer(&e, "max_source_rows", 0))
 	s.RetryWindow = l.duration(&e, "source_retry_window", 10*time.Second)
 	s.Snapshot = l.onOff(&e, "source_snapshot", true)
@@ -301,6 +303,11 @@ func LoadFrom(env func(string) (string, bool), readFile func(string) ([]byte, er
 		e.add("log_format", "must be json or text")
 	}
 	c.PluginDir = l.str("plugin_dir", "/var/lib/vdb/plugins")
+	for _, x := range strings.Split(l.str("collations_under_test", ""), ",") {
+		if x = strings.TrimSpace(x); x != "" {
+			c.CollationsUnderTest = append(c.CollationsUnderTest, x)
+		}
+	}
 	c.Socket = m.RunDir + "/vdb.sock"
 	c.MysqldSocket = m.RunDir + "/mysqld.sock"
 

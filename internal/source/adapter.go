@@ -37,11 +37,13 @@ type Adapter struct {
 	bgPool   *sql.DB
 	catalog  core.Catalog
 	pushdown Pushdown
+	rowLen   func(d *core.TableDef) uint64 // the Source's average row length, or 0
 	Log      *Log
 	version  string
 
 	mu        sync.Mutex
 	snapshots map[*snapshot]bool
+	stmts     map[uint64]uint64 // statements started per connection
 	stop      chan struct{}
 	emit      func(event string, payload any)
 }
@@ -50,12 +52,16 @@ var _ core.Source = (*Adapter)(nil)
 
 // New returns an adapter; Connect opens the pools.
 func New(cfg config.Source) *Adapter {
-	a := &Adapter{cfg: cfg, snapshots: map[*snapshot]bool{}, stop: make(chan struct{})}
+	a := &Adapter{cfg: cfg, snapshots: map[*snapshot]bool{}, stmts: map[uint64]uint64{}, stop: make(chan struct{})}
 	return a
 }
 
 // SetCatalog installs the catalog of record.
 func (a *Adapter) SetCatalog(c core.Catalog) { a.catalog = c }
+
+// SetRowLength installs the Source's average row length per table, for the
+// first page's byte cap (P3).
+func (a *Adapter) SetRowLength(f func(d *core.TableDef) uint64) { a.rowLen = f }
 
 // SetPushdown installs the pushdown reducer.
 func (a *Adapter) SetPushdown(p Pushdown) { a.pushdown = p }
@@ -265,6 +271,27 @@ func (a *Adapter) watchdog() {
 			s.expire()
 		}
 	}
+}
+
+// StatementStarted records that connection conn started a statement, so its
+// snapshot's next request is the statement's first (SD-2).
+func (a *Adapter) StatementStarted(conn uint64) {
+	a.mu.Lock()
+	a.stmts[conn]++
+	a.mu.Unlock()
+}
+
+// ConnectionEnded forgets the connection's statement count.
+func (a *Adapter) ConnectionEnded(conn uint64) {
+	a.mu.Lock()
+	delete(a.stmts, conn)
+	a.mu.Unlock()
+}
+
+func (a *Adapter) statement(conn uint64) uint64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.stmts[conn]
 }
 
 // Snapshots returns the age of every open snapshot by connection id.

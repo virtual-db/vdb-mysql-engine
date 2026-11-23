@@ -26,6 +26,7 @@ import (
 	"github.com/virtual-db/vdb-mysql-engine/internal/identity"
 	"github.com/virtual-db/vdb-mysql-engine/internal/login"
 	"github.com/virtual-db/vdb-mysql-engine/internal/metrics"
+	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"github.com/virtual-db/vdb-mysql-engine/internal/pushdown"
 	"github.com/virtual-db/vdb-mysql-engine/internal/rebuild"
 	"github.com/virtual-db/vdb-mysql-engine/internal/schemapoll"
@@ -144,7 +145,10 @@ func (s *Server) connectSource(ctx context.Context) error {
 
 // Step 6: databases, tables, objects and accounts into the catalog and the account set.
 func (s *Server) discover(ctx context.Context) error {
-	s.proven = collations.For(mysqldRelease())
+	s.proven = collations.For(mysqldRelease()).Assume(s.cfg.CollationsUnderTest)
+	if len(s.cfg.CollationsUnderTest) > 0 {
+		log.Warn("collations under test are treated as proven; for the collation proof suite only", "collations", s.cfg.CollationsUnderTest)
+	}
 	d, err := discovery.New(s.src, s.proven, s.cfg.Source.Databases)
 	if err != nil {
 		return err
@@ -159,6 +163,15 @@ func (s *Server) discover(ctx context.Context) error {
 		return err
 	}
 	s.stats = stats.New(s.src, s.api, s.cfg.Source.BusyThreads)
+	s.src.SetRowLength(func(d *core.TableDef) uint64 {
+		if d.Source == nil {
+			return 0
+		}
+		if ts, ok := s.stats.Table(mysqldef.SourceDB(d.Source), d.Source.Table); ok {
+			return ts.AvgRowLen
+		}
+		return 0
+	})
 	for _, db := range s.dbs {
 		_ = s.stats.Refresh(ctx, db.Name)
 	}
@@ -234,7 +247,8 @@ func (s *Server) mysqldExec(ctx context.Context, stmt string) error { return s.c
 
 // Step 7: the plug-in protocol socket.
 func (s *Server) listen(ctx context.Context) error {
-	s.engine = engine.New(s.api, s.stats, s.proven, engine.Config{BatchRows: s.cfg.Source.BatchRows, BatchBytes: s.cfg.Source.BatchBytes, InsertBatch: s.cfg.InsertBatch, AutoIncrementGap: s.cfg.AutoIncrementGap})
+	s.engine = engine.New(s.api, s.stats, s.proven, engine.Config{BatchRows: s.cfg.Source.BatchRows, BatchBytes: s.cfg.Source.BatchBytes, InsertBatch: s.cfg.InsertBatch, AutoIncrementGap: s.cfg.AutoIncrementGap,
+		StatementStarted: s.src.StatementStarted, ConnectionEnded: s.src.ConnectionEnded})
 	st, err := statements.New(s.api, func() bool { return s.api.HasHandlers("vdb.query.received.intercept") })
 	if err != nil {
 		return err
