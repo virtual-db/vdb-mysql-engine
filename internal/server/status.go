@@ -120,6 +120,16 @@ func (s *Server) hasProcess(account string) bool {
 
 func (s *Server) sessionsRows(reader core.SessionInfo) [][]string {
 	ages := s.src.Snapshots()
+	// The environment's oldest open snapshot: what holds back purge on the
+	// Source (S3). Every row carries it; NULL when no snapshot is open.
+	oldest := vdbschema.NULL
+	var max time.Duration
+	for _, a := range ages {
+		if a >= max {
+			max = a
+			oldest = i64(a.Milliseconds())
+		}
+	}
 	reqs := map[uint64][2]int64{}
 	for _, r := range s.src.Log.Records() {
 		x := reqs[r.ConnID]
@@ -136,7 +146,7 @@ func (s *Server) sessionsRows(reader core.SessionInfo) [][]string {
 		if a, ok := ages[c.ConnID]; ok {
 			age = i64(a.Milliseconds())
 		}
-		rows = append(rows, []string{u(c.ConnID), c.Account, age, i64(reqs[c.ConnID][0]), i64(reqs[c.ConnID][1]), i64(c.StatementsNoBKA)})
+		rows = append(rows, []string{u(c.ConnID), c.Account, age, i64(reqs[c.ConnID][0]), i64(reqs[c.ConnID][1]), i64(c.StatementsNoBKA), oldest})
 	}
 	return rows
 }

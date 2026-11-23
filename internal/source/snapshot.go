@@ -35,6 +35,7 @@ type snapshot struct {
 	lastUsed time.Time
 	mirrored map[string]string
 	expired  bool
+	checked  uint64 // the statement whose first request checked the age; 0: none yet
 	closed   bool
 	noPush   bool
 	rows     int64
@@ -150,8 +151,13 @@ func (s *snapshot) expire() {
 	}
 }
 
-// before checks the snapshot's age and idle limits before a request.
+// before checks the snapshot's limits before a request. The maximum age is
+// checked only on a statement's first Source request (SD-2): a statement
+// that is still reading keeps its snapshot however long it runs, and an open
+// transaction older than the maximum age fails at its next statement. An
+// idle snapshot (closed by the watchdog) fails or renews on any request.
 func (s *snapshot) before() (querier, error) {
+	stmt := s.a.statement(s.info.ConnID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -161,10 +167,13 @@ func (s *snapshot) before() (querier, error) {
 		s.lastUsed = time.Now()
 		return s.a.snapPool, nil
 	}
-	tooOld := time.Since(s.opened) > s.a.cfg.SnapshotMaxAge
+	tooOld := AgeExpired(stmt, &s.checked, s.opened, time.Now(), s.a.cfg.SnapshotMaxAge)
 	if s.expired || tooOld {
 		if s.a.cfg.SnapshotPolicy != "relaxed" {
-			return nil, &core.Error{Code: core.ErrSource, Msg: "the Source snapshot expired; retry the transaction"}
+			if tooOld {
+				return nil, ErrTooOld(s.a.cfg.SnapshotMaxAge)
+			}
+			return nil, &core.Error{Code: core.ErrSource, Msg: "the Source snapshot expired after VDB_SOURCE_SNAPSHOT_IDLE_TIMEOUT idle; retry the transaction"}
 		}
 		if s.conn != nil {
 			s.conn.Close()
@@ -179,6 +188,22 @@ func (s *snapshot) before() (querier, error) {
 	}
 	s.lastUsed = time.Now()
 	return s.conn, nil
+}
+
+// AgeExpired reports whether a snapshot opened at opened is past maxAge at a
+// request of statement stmt (the connection's statement count). Only the
+// first request of a statement is checked (SD-2); checked holds the last
+// statement checked. stmt 0 means statements are not counted: every request
+// is checked.
+func AgeExpired(stmt uint64, checked *uint64, opened, now time.Time, maxAge time.Duration) bool {
+	first := stmt == 0 || stmt != *checked
+	*checked = stmt
+	return first && now.Sub(opened) > maxAge
+}
+
+// ErrTooOld is the strict policy's error for a snapshot past its maximum age.
+func ErrTooOld(maxAge time.Duration) error {
+	return &core.Error{Code: core.ErrSource, Msg: fmt.Sprintf("the Source snapshot is older than VDB_SOURCE_SNAPSHOT_MAX_AGE (%s); retry the transaction", maxAge)}
 }
 
 func (s *snapshot) run(d *core.TableDef, sh shaped) ([][]core.Value, error) {

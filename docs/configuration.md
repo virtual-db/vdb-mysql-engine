@@ -25,7 +25,7 @@ lower case without `VDB_`), then defaults. An invalid value stops start-up with 
 | `VDB_MAX_SOURCE_ROWS` | 0 | Rows one statement may read from the Source (0: no limit) |
 | `VDB_SOURCE_RETRY_WINDOW` | 10s | Retries before a snapshot opens |
 | `VDB_SOURCE_SNAPSHOT` | `on` | `off` reads without a consistent snapshot |
-| `VDB_SOURCE_SNAPSHOT_IDLE_TIMEOUT`, `VDB_SOURCE_SNAPSHOT_MAX_AGE` | 60s, 15m | Snapshot limits |
+| `VDB_SOURCE_SNAPSHOT_IDLE_TIMEOUT`, `VDB_SOURCE_SNAPSHOT_MAX_AGE` | 60s, 15m | Snapshot limits: idle time between requests, and age, checked at each statement's first Source request (a statement still reading keeps its snapshot) |
 | `VDB_SOURCE_SNAPSHOT_POLICY` | `strict` | `relaxed` renews an expired snapshot with a warning |
 | `VDB_SOURCE_BUSY_THREADS` | 64 | Background reads pause above this many running Source threads |
 | `VDB_COUNT_MAX_SHADOWED` | 100000 | Above this many changed keys, `COUNT(*)` counts rows instead |
