@@ -41,3 +41,11 @@ func TestProven8413(t *testing.T) {
 		t.Fatal("8.4.13's entry must not prove another release")
 	}
 }
+
+func TestListed(t *testing.T) {
+	for release, want := range map[string]bool{"8.4.13": true, "8.4.12": false, "8.4": false, "9.1.0": false, "": false} {
+		if got := collations.Listed(release); got != want {
+			t.Fatalf("Listed(%q) = %v, want %v", release, got, want)
+		}
+	}
+}
