@@ -56,6 +56,9 @@ type Checker struct {
 	W      Writer
 	Images ImageFunc
 	Wait   core.WaitFunc
+	// Probe makes a record lock wait for other transactions' interval locks
+	// on the row's index entries (vdb-mysql-engine#6); nil skips it.
+	Probe func(s core.Session, t core.TableID, row core.Row, cols core.ColumnSet, mode core.LockMode) error
 }
 
 func values(row core.Row, cols []uint16) (core.Row, bool) {
@@ -94,9 +97,13 @@ func refused(t core.TableID, name string) error {
 
 // rowLocks locks each row a read returns in mode, through the lock table.
 func (c *Checker) rowLocks(s core.Session, mode core.LockMode) *core.ReadLocks {
-	return &core.ReadLocks{Row: func(t core.TableID, key core.KeyImage) error {
+	rl := &core.ReadLocks{Row: func(t core.TableID, key core.KeyImage) error {
 		return c.API.Locks().Acquire(s, core.Resource{Table: t, Point: key}, mode, c.Wait)
 	}}
+	if c.Probe != nil {
+		rl.Probe = func(t core.TableID, row core.Row, cols core.ColumnSet) error { return c.Probe(s, t, row, cols, mode) }
+	}
+	return rl
 }
 
 // CheckParent checks that a child row's parent exists, taking a shared lock

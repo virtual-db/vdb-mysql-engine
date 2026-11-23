@@ -25,19 +25,52 @@ const (
 	IntervalS                            // the record and gap locks of every row in a range, shared
 	IntervalX                            // the same, exclusive
 	InsertIntention                      // waits for gap and interval locks; not kept
+	// RecordWaitS and RecordWaitX wait like a record lock and are not kept:
+	// a row a locking scan reads inside its own interval (plan 03 L1).
+	RecordWaitS
+	RecordWaitX
+	// EntryWaitS and EntryWaitX wait at a row's image on one index for other
+	// transactions' interval locks covering it, and are not kept: every
+	// record lock probes them, so a held range blocks the writers of its
+	// rows (vdb-mysql-engine#6).
+	EntryWaitS
+	EntryWaitX
 )
 
 // Modes is the definition passed to core.Locks.Define once at start.
 func Modes() core.LockModes {
 	return core.LockModes{
-		Names:     []string{"RECORD_S", "RECORD_X", "GAP", "INTERVAL_S", "INTERVAL_X", "INSERT_INTENTION"},
+		Names: []string{"RECORD_S", "RECORD_X", "GAP", "INTERVAL_S", "INTERVAL_X", "INSERT_INTENTION",
+			"RECORD_WAIT_S", "RECORD_WAIT_X", "ENTRY_WAIT_S", "ENTRY_WAIT_X"},
 		Conflicts: conflicts,
 		Covers:    covers,
-		WaitOnly:  func(m core.LockMode) bool { return m == InsertIntention },
+		WaitOnly:  waitOnly,
 	}
 }
 
-func exclusive(m core.LockMode) bool { return m == RecordX || m == IntervalX }
+func waitOnly(m core.LockMode) bool { return m >= InsertIntention }
+
+func exclusive(m core.LockMode) bool {
+	return m == RecordX || m == IntervalX || m == RecordWaitX || m == EntryWaitX
+}
+
+// Wait returns the wait-only mode of a record lock mode, for a row inside an
+// interval the transaction holds.
+func Wait(record core.LockMode) core.LockMode {
+	if record == RecordX {
+		return RecordWaitX
+	}
+	return RecordWaitS
+}
+
+// EntryWait returns the mode that probes a row's index entries for a record
+// lock mode.
+func EntryWait(record core.LockMode) core.LockMode {
+	if record == RecordX {
+		return EntryWaitX
+	}
+	return EntryWaitS
+}
 
 // conflicts is InnoDB's compatibility matrix for overlapping resources held
 // by another transaction: gap locks never conflict with each other; an
@@ -49,6 +82,9 @@ func conflicts(held, wanted core.LockMode, _, _ core.Resource) bool {
 		return held == Gap || held == IntervalS || held == IntervalX
 	case wanted == Gap || held == Gap || held == InsertIntention:
 		return false
+	case wanted == EntryWaitS || wanted == EntryWaitX:
+		// Only intervals sit in an index's slot besides insert intentions.
+		return (held == IntervalS || held == IntervalX) && (exclusive(held) || exclusive(wanted))
 	default:
 		return exclusive(held) || exclusive(wanted)
 	}

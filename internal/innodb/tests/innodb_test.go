@@ -32,14 +32,35 @@ func TestMatrix(t *testing.T) {
 		{IntervalS, RecordS, false},
 		{IntervalS, RecordX, true},
 		{IntervalX, IntervalS, true},
+		// A row inside the reader's own interval waits like a record lock.
+		{RecordS, RecordWaitS, false},
+		{RecordX, RecordWaitS, true},
+		{RecordS, RecordWaitX, true},
+		// Entry probes wait for other transactions' intervals only.
+		{IntervalS, EntryWaitS, false},
+		{IntervalX, EntryWaitS, true},
+		{IntervalS, EntryWaitX, true},
+		{IntervalX, EntryWaitX, true},
+		{Gap, EntryWaitX, false},
+		{RecordX, EntryWaitX, false},
 	}
 	for i, c := range cases {
 		if got := m.Conflicts(c.held, c.wanted, core.Resource{}, core.Resource{}); got != c.conflict {
 			t.Errorf("case %d (%s held, %s wanted): conflict = %v, want %v", i, m.Names[c.held], m.Names[c.wanted], got, c.conflict)
 		}
 	}
-	if !m.WaitOnly(InsertIntention) || m.WaitOnly(Gap) {
-		t.Error("only the insert intention is wait-only")
+	for _, mode := range []core.LockMode{InsertIntention, RecordWaitS, RecordWaitX, EntryWaitS, EntryWaitX} {
+		if !m.WaitOnly(mode) {
+			t.Errorf("%s must be wait-only", m.Names[mode])
+		}
+	}
+	for _, mode := range []core.LockMode{RecordS, RecordX, Gap, IntervalS, IntervalX} {
+		if m.WaitOnly(mode) {
+			t.Errorf("%s must be kept", m.Names[mode])
+		}
+	}
+	if Wait(RecordX) != RecordWaitX || Wait(RecordS) != RecordWaitS || EntryWait(RecordX) != EntryWaitX || EntryWait(RecordS) != EntryWaitS {
+		t.Error("Wait and EntryWait map record modes to their wait-only modes")
 	}
 	if !m.Covers(RecordX, RecordS) || m.Covers(RecordS, RecordX) {
 		t.Error("an exclusive record lock covers a shared one, not the reverse")

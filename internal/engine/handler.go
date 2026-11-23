@@ -535,7 +535,7 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 		return nil, err
 	}
 	req := core.ScanRequest{Table: core.TableID(m.Table), Index: core.IndexID(m.Index), Ordered: m.Kind != protocol.ScanKind_SCAN_UNORDERED,
-		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock)}
+		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock, c.iso.Gaps())}
 	if m.Backward {
 		req.Dir = core.Backward
 	}
@@ -647,7 +647,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	b, shadows, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock))
+	b, shadows, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock, false))
 	if err != nil {
 		return nil, err
 	}
