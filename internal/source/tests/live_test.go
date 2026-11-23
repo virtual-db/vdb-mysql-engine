@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 
@@ -388,4 +389,83 @@ func TestLiveByteCappedPages(t *testing.T) {
 		}
 	}
 	t.Logf("%d pages, first %d rows, second %d rows", len(sizes), sizes[0], sizes[1])
+}
+
+// TestLiveKeyPages (K2): a lookup of keys with 2,000 rows each is paged per
+// key: every request stays near VDB_BATCH_ROWS rows, and each key's rows come
+// back whole and in identity order, through NULL key parts too.
+func TestLiveKeyPages(t *testing.T) {
+	db := liveDB(t)
+	fillAB(t, db)
+	d := liveTable(abTable())
+	q := query(db)
+	keys := [][]core.Value{{v("3")}, {v("7")}, {v("3"), null}, {v("99")}, {v("5"), v("40")}}
+	var want [][]core.Value
+	for i, k := range keys {
+		cond := "a = " + string(k[0].B)
+		if len(k) > 1 {
+			if k[1].Null {
+				cond += " AND b IS NULL"
+			} else {
+				cond += " AND b = " + string(k[1].B)
+			}
+		}
+		rows, err := q(fmt.Sprintf("SELECT %d, a, b, id FROM vdb_page_test.t WHERE %s ORDER BY id", i, cond))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want = append(want, rows...)
+	}
+	var sizes []int
+	counting := func(s string) ([][]core.Value, error) {
+		rows, err := q(s)
+		sizes = append(sizes, len(rows))
+		return rows, err
+	}
+	// Keys of two lengths go in separate requests; 2 keys per request.
+	got, sqls, err := WalkKeys(counting, d, core.ColumnSet{0, 1, 2}, []uint16{0, 1}, keys, 2, 500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.SliceStable(got, func(i, j int) bool { return string(got[i][0].B) < string(got[j][0].B) })
+	sameRows(t, "key pages", got, want)
+	for i, n := range sizes {
+		if n > 500 {
+			t.Fatalf("request %d returned %d rows for a budget of 500:\n%s", i, n, sqls[i])
+		}
+	}
+	t.Logf("%d requests for %d rows", len(sqls), len(want))
+}
+
+// TestLiveKeyPagesKeyless (K2): keyless rows with many identical copies under
+// one key page to exactly their rows.
+func TestLiveKeyPagesKeyless(t *testing.T) {
+	db := liveDB(t)
+	exec(t, db, "CREATE TABLE k (x INT NULL, y INT NULL, KEY (x))")
+	var vals []string
+	for i := 0; i < 600; i++ {
+		y := fmt.Sprint(i % 3)
+		if i%13 == 0 {
+			y = "NULL"
+		}
+		vals = append(vals, fmt.Sprintf("(%d, %s)", i%2, y))
+	}
+	exec(t, db, "INSERT INTO k VALUES "+strings.Join(vals, ","))
+	d := liveTable(&core.TableDef{ID: 2, Name: "k", Kind: core.Mirrored,
+		Columns:  []core.ColumnDef{{Name: "x", Nullable: true, Engine: intCol}, {Name: "y", Nullable: true, Engine: intCol}},
+		Indexes:  []core.IndexDef{{ID: 0, Name: "x", Columns: []uint16{0}}},
+		Identity: core.WholeRow})
+	q := query(db)
+	want, err := q("(SELECT 0, x, y FROM vdb_page_test.k WHERE x = 0 ORDER BY x, y) UNION ALL (SELECT 1, x, y FROM vdb_page_test.k WHERE x = 1 ORDER BY x, y) ORDER BY 1, 2, 3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rows := range []int{4, 7, 50, 10000} {
+		got, _, err := WalkKeys(q, d, core.ColumnSet{0, 1}, []uint16{0}, [][]core.Value{{v("0")}, {v("1")}}, 2, rows)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sort.SliceStable(got, func(i, j int) bool { return string(got[i][0].B) < string(got[j][0].B) })
+		sameRows(t, fmt.Sprintf("keyless key pages, %d rows", rows), got, want)
+	}
 }

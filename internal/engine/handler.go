@@ -178,8 +178,8 @@ type conn struct {
 	scans    map[uint32]*scan
 	nextID   uint32
 	seen     map[core.TableID]uint64
-	pending  []core.Batch // the rest of a lookup cut at the byte cap
-	pendKey  []byte
+	lookups  map[string]*lookupState // open lookup cursors by continuation
+	lookupN  uint64
 	noBKA    atomic.Int64
 	since    time.Time
 	ctx      core.StmtContext
@@ -376,7 +376,11 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		}
 		return c.lookup(m)
 	case protocol.OpLookupNext:
-		return c.lookupNext()
+		m, err := decode[protocol.LookupNext](body)
+		if err != nil {
+			return nil, err
+		}
+		return c.lookupNext(m)
 	case protocol.OpCount:
 		m, err := decode[protocol.Count](body)
 		if err != nil {
@@ -490,7 +494,7 @@ func (c *conn) closeScans() {
 		_ = s.h.Close()
 		delete(c.scans, id)
 	}
-	c.pending = nil
+	c.closeLookups()
 }
 
 func (c *conn) tableOpen(m *protocol.TableOpen) (proto.Message, error) {
@@ -636,54 +640,110 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	b, shadows, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock))
+	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock))
 	if err != nil {
 		return nil, err
 	}
 	rep := &protocol.LookupReply{Warnings: c.warnings(core.TableID(m.Table), m.Version)}
-	for _, img := range shadows {
+	for _, img := range cur.Shadows() {
 		rep.ShadowImages = append(rep.ShadowImages, img)
 	}
-	first, rest := c.cut(b)
-	rep.Batch = fromBatch(first, rest == nil)
-	if rest != nil {
-		c.pending = []core.Batch{*rest}
-		c.pendKey = []byte(strconv.FormatInt(time.Now().UnixNano(), 36))
-		rep.Continuation = c.pendKey
+	st := &lookupState{cur: cur}
+	if err := c.fillLookup(st, rep); err != nil {
+		_ = cur.Close()
+		return nil, err
+	}
+	if !st.done {
+		c.keepLookup(st)
+		rep.Continuation = st.key
 	}
 	return rep, nil
 }
 
-func (c *conn) lookupNext() (proto.Message, error) {
-	if len(c.pending) == 0 {
-		return &protocol.LookupReply{Batch: &protocol.Batch{End: true}}, nil
-	}
-	b := c.pending[0]
-	c.pending = nil
-	first, rest := c.cut(b)
-	rep := &protocol.LookupReply{Batch: fromBatch(first, rest == nil)}
-	if rest != nil {
-		c.pending = []core.Batch{*rest}
-		rep.Continuation = c.pendKey
-	}
-	return rep, nil
+// lookupState is a lookup whose rows did not fit one reply: vdb.so reads the
+// rest with LookupNext and the continuation key.
+type lookupState struct {
+	cur  core.LookupCursor
+	key  []byte
+	done bool
 }
 
-// cut splits a batch at the byte cap; one row larger than the cap travels alone.
-func (c *conn) cut(b core.Batch) (core.Batch, *core.Batch) {
-	size := 0
-	for i, r := range b.Rows {
-		size += core.RowSize(r)
-		if size > c.h.cfg.BatchBytes && i > 0 {
-			first := core.Batch{Rows: b.Rows[:i], Refs: b.Refs[:i]}
-			rest := core.Batch{Rows: b.Rows[i:], Refs: b.Refs[i:]}
-			if len(b.KeyIdx) == len(b.Rows) {
-				first.KeyIdx, rest.KeyIdx = b.KeyIdx[:i], b.KeyIdx[i:]
+// maxOpenLookups bounds the lookups a connection keeps open for LookupNext;
+// a nested-loop join leaves one per handler, so past this many the oldest is
+// one vdb.so has abandoned.
+const maxOpenLookups = 64
+
+func (c *conn) keepLookup(st *lookupState) {
+	if c.lookups == nil {
+		c.lookups = map[string]*lookupState{}
+	}
+	if len(c.lookups) >= maxOpenLookups {
+		var oldest string
+		var at uint64
+		for k := range c.lookups {
+			if n, _ := strconv.ParseUint(k, 36, 64); oldest == "" || n < at {
+				oldest, at = k, n
 			}
-			return first, &rest
+		}
+		_ = c.lookups[oldest].cur.Close()
+		delete(c.lookups, oldest)
+	}
+	c.lookupN++
+	st.key = []byte(strconv.FormatUint(c.lookupN, 36))
+	c.lookups[string(st.key)] = st
+}
+
+func (c *conn) closeLookups() {
+	for k, st := range c.lookups {
+		_ = st.cur.Close()
+		delete(c.lookups, k)
+	}
+}
+
+// fillLookup reads the cursor into one reply: up to VDB_BATCH_ROWS rows and
+// VDB_BATCH_BYTES, or to its end. Reading on to the end when it is near keeps
+// a lookup of a few rows to one request and no open cursor.
+func (c *conn) fillLookup(st *lookupState, rep *protocol.LookupReply) error {
+	var all core.Batch
+	size := 0
+	for len(all.Rows) < c.h.cfg.BatchRows && size < c.h.cfg.BatchBytes {
+		b, err := st.cur.Next(c.h.cfg.BatchRows-len(all.Rows), c.h.cfg.BatchBytes-size)
+		all.Rows = append(all.Rows, b.Rows...)
+		all.Refs = append(all.Refs, b.Refs...)
+		all.KeyIdx = append(all.KeyIdx, b.KeyIdx...)
+		for _, r := range b.Rows {
+			size += core.RowSize(r)
+		}
+		if err == io.EOF {
+			st.done = true
+			_ = st.cur.Close()
+			break
+		}
+		if err != nil {
+			return err
 		}
 	}
-	return b, nil
+	rep.Batch = fromBatch(all, st.done)
+	return nil
+}
+
+func (c *conn) lookupNext(m *protocol.LookupNext) (proto.Message, error) {
+	st := c.lookups[string(m.Continuation)]
+	if st == nil {
+		return &protocol.LookupReply{Batch: &protocol.Batch{End: true}}, nil
+	}
+	rep := &protocol.LookupReply{}
+	if err := c.fillLookup(st, rep); err != nil {
+		_ = st.cur.Close()
+		delete(c.lookups, string(m.Continuation))
+		return nil, err
+	}
+	if st.done {
+		delete(c.lookups, string(m.Continuation))
+	} else {
+		rep.Continuation = st.key
+	}
+	return rep, nil
 }
 
 func (c *conn) statsReply(m *protocol.Stats) (proto.Message, error) {

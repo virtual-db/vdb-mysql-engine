@@ -122,11 +122,16 @@ func (c *Checker) CheckParent(s core.Session, child *core.TableDef, fk mysqldef.
 	if err != nil {
 		return err
 	}
-	b, err := s.ByColumns(parent.ID, pix.ID, img, pix.Columns, vals, pix.Columns, c.rowLocks(s, innodb.RecordS))
+	cur, err := s.ByColumns(parent.ID, pix.ID, img, pix.Columns, vals, pix.Columns, c.rowLocks(s, innodb.RecordS))
 	if err != nil {
 		return err
 	}
-	if len(b.Rows) == 0 {
+	// One parent row is enough.
+	exists, err := hasRow(cur)
+	if err != nil {
+		return err
+	}
+	if !exists {
 		return &Error{Code: NoReferencedRow, Constraint: fk.Name, Msg: "Cannot add or update a child row: a foreign key constraint fails"}
 	}
 	return nil
@@ -191,46 +196,89 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 		if !restrict {
 			locks = c.rowLocks(s, innodb.RecordX)
 		}
-		b, err := s.ByColumns(cdef.ID, f.ChildIndex, img, f.Columns, oldVals, all(&cdef), locks)
+		cur, err := s.ByColumns(cdef.ID, f.ChildIndex, img, f.Columns, oldVals, all(&cdef), locks)
 		if err != nil {
 			return err
 		}
-		if len(b.Rows) == 0 {
-			continue
-		}
 		if restrict {
-			return &Error{Code: RowIsReferenced, Constraint: f.Name, Msg: "Cannot delete or update a parent row: a foreign key constraint fails"}
-		}
-		if depth+1 > MaxDepth {
-			return &Error{Code: Depth, Constraint: f.Name, Msg: "Foreign key cascade delete/update exceeds max depth of 15."}
-		}
-		for i, row := range b.Rows {
-			ref := b.Refs[i]
-			if action == mysqldef.FKCascade && newRow == nil {
-				if err := c.W.DeleteRow(s, cdef.ID, ref, row, depth+1); err != nil {
-					return err
-				}
-				continue
-			}
-			nr := core.Row(append([]core.Value(nil), row...))
-			newVals, _ := values(newRow, pix.Columns)
-			for j, col := range f.Columns {
-				if action == mysqldef.FKSetNull || newVals == nil {
-					nr[col] = core.Value{Null: true}
-				} else {
-					nr[col] = newVals[j]
-				}
-			}
-			if c.Images == nil {
-				return &core.Error{Code: core.ErrInternal, Table: cdef.ID, Msg: "no image callback for a cascaded update"}
-			}
-			ims, err := c.Images(cdef.ID, []core.Row{nr})
+			// RESTRICT stops at the first child row.
+			found, err := hasRow(cur)
 			if err != nil {
 				return err
 			}
-			if err := c.W.UpdateRow(s, cdef.ID, ref, row, nr, ims[0], depth+1, f.Name); err != nil {
+			if found {
+				return &Error{Code: RowIsReferenced, Constraint: f.Name, Msg: "Cannot delete or update a parent row: a foreign key constraint fails"}
+			}
+			continue
+		}
+		if err := c.cascade(s, cur, &cdef, f, pix, newRow, action, depth); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// hasRow reports whether the cursor has a row, reading at most one, and closes it.
+func hasRow(cur core.Cursor) (bool, error) {
+	defer cur.Close()
+	b, err := cur.Next(1, 0)
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+	return len(b.Rows) > 0, nil
+}
+
+// cascade applies a CASCADE or SET NULL action to the children the cursor
+// yields, one batch at a time (Source scaling plan K3), and closes it.
+func (c *Checker) cascade(s core.Session, cur core.Cursor, cdef *core.TableDef, f mysqldef.ForeignKey, pix *core.IndexDef,
+	newRow core.Row, action mysqldef.FKAction, depth int) error {
+	defer cur.Close()
+	for {
+		b, err := cur.Next(0, 0)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if len(b.Rows) > 0 && depth+1 > MaxDepth {
+			return &Error{Code: Depth, Constraint: f.Name, Msg: "Foreign key cascade delete/update exceeds max depth of 15."}
+		}
+		if err := c.applyChildren(s, b, cdef, f, pix, newRow, action, depth); err != nil {
+			return err
+		}
+	}
+}
+
+// applyChildren applies the action to one batch of children.
+func (c *Checker) applyChildren(s core.Session, b core.Batch, cdef *core.TableDef, f mysqldef.ForeignKey, pix *core.IndexDef,
+	newRow core.Row, action mysqldef.FKAction, depth int) error {
+	for i, row := range b.Rows {
+		ref := b.Refs[i]
+		if action == mysqldef.FKCascade && newRow == nil {
+			if err := c.W.DeleteRow(s, cdef.ID, ref, row, depth+1); err != nil {
 				return err
 			}
+			continue
+		}
+		nr := core.Row(append([]core.Value(nil), row...))
+		newVals, _ := values(newRow, pix.Columns)
+		for j, col := range f.Columns {
+			if action == mysqldef.FKSetNull || newVals == nil {
+				nr[col] = core.Value{Null: true}
+			} else {
+				nr[col] = newVals[j]
+			}
+		}
+		if c.Images == nil {
+			return &core.Error{Code: core.ErrInternal, Table: cdef.ID, Msg: "no image callback for a cascaded update"}
+		}
+		ims, err := c.Images(cdef.ID, []core.Row{nr})
+		if err != nil {
+			return err
+		}
+		if err := c.W.UpdateRow(s, cdef.ID, ref, row, nr, ims[0], depth+1, f.Name); err != nil {
+			return err
 		}
 	}
 	return nil
