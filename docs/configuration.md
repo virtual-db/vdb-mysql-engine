@@ -34,6 +34,7 @@ lower case without `VDB_`), then defaults. An invalid value stops start-up with 
 | `VDB_SOURCE_LOG_SIZE`, `VDB_SOURCE_LOG_FILE` | 10000, empty | The Source request log |
 | `VDB_LOG_FORMAT` | `json` | `json` or `text` |
 | `VDB_LOG_LEVEL` | `info` | `debug` adds debug-level logs (pushdown decisions, Source requests); environment only |
+| `VDB_COLLATIONS_UNDER_TEST` | empty | Comma-separated collations treated as proven for order and equality. For vdb-tests' collation proof suite only: an unproven collation can give wrong results with it |
 | `VDB_PLUGIN_DIR` | `/var/lib/vdb/plugins` | VDB plugins (none ship in v1) |
 | `VDB_MYSQLD_STOP_TIMEOUT`, `VDB_MYSQLD_RESTART_WINDOW` | 30s, 5m | `mysqld` shutdown; three crashes in the window stop the container |
 | `VDB_MYSQLD_SORT_BUFFER_SIZE` and the other `VDB_MYSQLD_*` sizes | from the class | Override one class value |
