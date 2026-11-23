@@ -57,8 +57,9 @@ type Checker struct {
 	Images ImageFunc
 	Wait   core.WaitFunc
 	// Probe makes a record lock wait for other transactions' interval locks
-	// on the row's index entries (vdb-mysql-engine#6); nil skips it.
-	Probe func(s core.Session, t core.TableID, row core.Row, cols core.ColumnSet, mode core.LockMode) error
+	// on the row's entries in the indexes want selects (vdb-mysql-engine#6);
+	// nil skips it.
+	Probe func(s core.Session, t core.TableID, row core.Row, cols core.ColumnSet, mode core.LockMode, want func(core.IndexID) bool) error
 }
 
 func values(row core.Row, cols []uint16) (core.Row, bool) {
@@ -95,13 +96,16 @@ func refused(t core.TableID, name string) error {
 		Msg: "foreign key " + name + " uses a collation not proven for equality; set foreign_key_checks=0 to write without the check (D-62)"}
 }
 
-// rowLocks locks each row a read returns in mode, through the lock table.
-func (c *Checker) rowLocks(s core.Session, mode core.LockMode) *core.ReadLocks {
+// rowLocks locks each row a read through index idx returns in mode, through
+// the lock table; the probe, as on InnoDB, covers only idx.
+func (c *Checker) rowLocks(s core.Session, idx core.IndexID, mode core.LockMode) *core.ReadLocks {
 	rl := &core.ReadLocks{Row: func(t core.TableID, key core.KeyImage) error {
 		return c.API.Locks().Acquire(s, core.Resource{Table: t, Point: key}, mode, c.Wait)
 	}}
 	if c.Probe != nil {
-		rl.Probe = func(t core.TableID, row core.Row, cols core.ColumnSet) error { return c.Probe(s, t, row, cols, mode) }
+		rl.Probe = func(t core.TableID, row core.Row, cols core.ColumnSet) error {
+			return c.Probe(s, t, row, cols, mode, func(i core.IndexID) bool { return i == idx })
+		}
 	}
 	return rl
 }
@@ -129,7 +133,7 @@ func (c *Checker) CheckParent(s core.Session, child *core.TableDef, fk mysqldef.
 	if err != nil {
 		return err
 	}
-	b, err := s.ByColumns(parent.ID, pix.ID, img, pix.Columns, vals, pix.Columns, c.rowLocks(s, innodb.RecordS))
+	b, err := s.ByColumns(parent.ID, pix.ID, img, pix.Columns, vals, pix.Columns, c.rowLocks(s, pix.ID, innodb.RecordS))
 	if err != nil {
 		return err
 	}
@@ -196,7 +200,7 @@ func (c *Checker) OnParentChange(s core.Session, parent *core.TableDef, oldRow, 
 		restrict := action == mysqldef.FKRestrict || action == mysqldef.FKNoAction
 		var locks *core.ReadLocks
 		if !restrict {
-			locks = c.rowLocks(s, innodb.RecordX)
+			locks = c.rowLocks(s, f.ChildIndex, innodb.RecordX)
 		}
 		b, err := s.ByColumns(cdef.ID, f.ChildIndex, img, f.Columns, oldVals, all(&cdef), locks)
 		if err != nil {
