@@ -244,7 +244,8 @@ func (s *Server) mysqldExec(ctx context.Context, stmt string) error { return s.c
 
 // Step 7: the plug-in protocol socket.
 func (s *Server) listen(ctx context.Context) error {
-	s.engine = engine.New(s.api, s.stats, s.proven, engine.Config{BatchRows: s.cfg.Source.BatchRows, BatchBytes: s.cfg.Source.BatchBytes, InsertBatch: s.cfg.InsertBatch, AutoIncrementGap: s.cfg.AutoIncrementGap})
+	s.engine = engine.New(s.api, s.stats, s.proven, engine.Config{BatchRows: s.cfg.Source.BatchRows, BatchBytes: s.cfg.Source.BatchBytes, InsertBatch: s.cfg.InsertBatch, AutoIncrementGap: s.cfg.AutoIncrementGap,
+		StatementStarted: s.src.StatementStarted, ConnectionEnded: s.src.ConnectionEnded})
 	st, err := statements.New(s.api, func() bool { return s.api.HasHandlers("vdb.query.received.intercept") })
 	if err != nil {
 		return err
