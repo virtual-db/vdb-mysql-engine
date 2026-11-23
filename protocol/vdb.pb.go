@@ -14,12 +14,11 @@
 package protocol
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -3464,7 +3463,7 @@ type DeleteAll struct {
 
 func (x *DeleteAll) Reset() {
 	*x = DeleteAll{}
-	mi := &file_vdb_proto_msgTypes[43]
+	mi := &file_vdb_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3476,7 +3475,7 @@ func (x *DeleteAll) String() string {
 func (*DeleteAll) ProtoMessage() {}
 
 func (x *DeleteAll) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[43]
+	mi := &file_vdb_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3489,7 +3488,7 @@ func (x *DeleteAll) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAll.ProtoReflect.Descriptor instead.
 func (*DeleteAll) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{43}
+	return file_vdb_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *DeleteAll) GetTable() uint32 {
@@ -3512,7 +3511,7 @@ type DeleteAllReply struct {
 
 func (x *DeleteAllReply) Reset() {
 	*x = DeleteAllReply{}
-	mi := &file_vdb_proto_msgTypes[44]
+	mi := &file_vdb_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3524,7 +3523,7 @@ func (x *DeleteAllReply) String() string {
 func (*DeleteAllReply) ProtoMessage() {}
 
 func (x *DeleteAllReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[44]
+	mi := &file_vdb_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3537,7 +3536,7 @@ func (x *DeleteAllReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAllReply.ProtoReflect.Descriptor instead.
 func (*DeleteAllReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{44}
+	return file_vdb_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DeleteAllReply) GetDeleted() uint64 {
@@ -3573,7 +3572,7 @@ type ColumnDef struct {
 
 func (x *ColumnDef) Reset() {
 	*x = ColumnDef{}
-	mi := &file_vdb_proto_msgTypes[44]
+	mi := &file_vdb_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3585,7 +3584,7 @@ func (x *ColumnDef) String() string {
 func (*ColumnDef) ProtoMessage() {}
 
 func (x *ColumnDef) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[44]
+	mi := &file_vdb_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3598,7 +3597,7 @@ func (x *ColumnDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnDef.ProtoReflect.Descriptor instead.
 func (*ColumnDef) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{44}
+	return file_vdb_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ColumnDef) GetName() string {
@@ -3693,7 +3692,7 @@ type IndexDef struct {
 
 func (x *IndexDef) Reset() {
 	*x = IndexDef{}
-	mi := &file_vdb_proto_msgTypes[45]
+	mi := &file_vdb_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3705,7 +3704,7 @@ func (x *IndexDef) String() string {
 func (*IndexDef) ProtoMessage() {}
 
 func (x *IndexDef) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[45]
+	mi := &file_vdb_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3718,7 +3717,7 @@ func (x *IndexDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexDef.ProtoReflect.Descriptor instead.
 func (*IndexDef) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{45}
+	return file_vdb_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *IndexDef) GetName() string {
@@ -3786,7 +3785,7 @@ type ForeignKeyDef struct {
 
 func (x *ForeignKeyDef) Reset() {
 	*x = ForeignKeyDef{}
-	mi := &file_vdb_proto_msgTypes[46]
+	mi := &file_vdb_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3798,7 +3797,7 @@ func (x *ForeignKeyDef) String() string {
 func (*ForeignKeyDef) ProtoMessage() {}
 
 func (x *ForeignKeyDef) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[46]
+	mi := &file_vdb_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3811,7 +3810,7 @@ func (x *ForeignKeyDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForeignKeyDef.ProtoReflect.Descriptor instead.
 func (*ForeignKeyDef) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{46}
+	return file_vdb_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ForeignKeyDef) GetName() string {
@@ -3885,7 +3884,7 @@ type TableDefinition struct {
 
 func (x *TableDefinition) Reset() {
 	*x = TableDefinition{}
-	mi := &file_vdb_proto_msgTypes[47]
+	mi := &file_vdb_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3897,7 +3896,7 @@ func (x *TableDefinition) String() string {
 func (*TableDefinition) ProtoMessage() {}
 
 func (x *TableDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[47]
+	mi := &file_vdb_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3910,7 +3909,7 @@ func (x *TableDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableDefinition.ProtoReflect.Descriptor instead.
 func (*TableDefinition) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{47}
+	return file_vdb_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *TableDefinition) GetDatabase() string {
@@ -3975,7 +3974,7 @@ type Catalog struct {
 
 func (x *Catalog) Reset() {
 	*x = Catalog{}
-	mi := &file_vdb_proto_msgTypes[48]
+	mi := &file_vdb_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3987,7 +3986,7 @@ func (x *Catalog) String() string {
 func (*Catalog) ProtoMessage() {}
 
 func (x *Catalog) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[48]
+	mi := &file_vdb_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4000,7 +3999,7 @@ func (x *Catalog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Catalog.ProtoReflect.Descriptor instead.
 func (*Catalog) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{48}
+	return file_vdb_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *Catalog) GetKind() CatalogKind {
@@ -4049,7 +4048,7 @@ type CatalogReply struct {
 
 func (x *CatalogReply) Reset() {
 	*x = CatalogReply{}
-	mi := &file_vdb_proto_msgTypes[49]
+	mi := &file_vdb_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4061,7 +4060,7 @@ func (x *CatalogReply) String() string {
 func (*CatalogReply) ProtoMessage() {}
 
 func (x *CatalogReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[49]
+	mi := &file_vdb_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4074,7 +4073,7 @@ func (x *CatalogReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogReply.ProtoReflect.Descriptor instead.
 func (*CatalogReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{49}
+	return file_vdb_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *CatalogReply) GetTable() uint32 {
@@ -4112,7 +4111,7 @@ type Alter struct {
 
 func (x *Alter) Reset() {
 	*x = Alter{}
-	mi := &file_vdb_proto_msgTypes[50]
+	mi := &file_vdb_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4124,7 +4123,7 @@ func (x *Alter) String() string {
 func (*Alter) ProtoMessage() {}
 
 func (x *Alter) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[50]
+	mi := &file_vdb_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4137,7 +4136,7 @@ func (x *Alter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Alter.ProtoReflect.Descriptor instead.
 func (*Alter) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{50}
+	return file_vdb_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *Alter) GetTable() uint32 {
@@ -4193,7 +4192,7 @@ type AlterReply struct {
 
 func (x *AlterReply) Reset() {
 	*x = AlterReply{}
-	mi := &file_vdb_proto_msgTypes[51]
+	mi := &file_vdb_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4205,7 +4204,7 @@ func (x *AlterReply) String() string {
 func (*AlterReply) ProtoMessage() {}
 
 func (x *AlterReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[51]
+	mi := &file_vdb_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4218,7 +4217,7 @@ func (x *AlterReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlterReply.ProtoReflect.Descriptor instead.
 func (*AlterReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{51}
+	return file_vdb_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AlterReply) GetVerdict() AlterVerdict {
@@ -4251,7 +4250,7 @@ type AlterRows struct {
 
 func (x *AlterRows) Reset() {
 	*x = AlterRows{}
-	mi := &file_vdb_proto_msgTypes[52]
+	mi := &file_vdb_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4263,7 +4262,7 @@ func (x *AlterRows) String() string {
 func (*AlterRows) ProtoMessage() {}
 
 func (x *AlterRows) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[52]
+	mi := &file_vdb_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4276,7 +4275,7 @@ func (x *AlterRows) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlterRows.ProtoReflect.Descriptor instead.
 func (*AlterRows) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{52}
+	return file_vdb_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *AlterRows) GetTable() uint32 {
@@ -4297,7 +4296,7 @@ type AlterPut struct {
 
 func (x *AlterPut) Reset() {
 	*x = AlterPut{}
-	mi := &file_vdb_proto_msgTypes[53]
+	mi := &file_vdb_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4309,7 +4308,7 @@ func (x *AlterPut) String() string {
 func (*AlterPut) ProtoMessage() {}
 
 func (x *AlterPut) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[53]
+	mi := &file_vdb_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4322,7 +4321,7 @@ func (x *AlterPut) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlterPut.ProtoReflect.Descriptor instead.
 func (*AlterPut) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{53}
+	return file_vdb_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *AlterPut) GetTable() uint32 {
@@ -4355,7 +4354,7 @@ type Kill struct {
 
 func (x *Kill) Reset() {
 	*x = Kill{}
-	mi := &file_vdb_proto_msgTypes[54]
+	mi := &file_vdb_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4367,7 +4366,7 @@ func (x *Kill) String() string {
 func (*Kill) ProtoMessage() {}
 
 func (x *Kill) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[54]
+	mi := &file_vdb_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4380,7 +4379,7 @@ func (x *Kill) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kill.ProtoReflect.Descriptor instead.
 func (*Kill) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{54}
+	return file_vdb_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *Kill) GetConnId() uint64 {
@@ -4403,7 +4402,7 @@ type AuthBegin struct {
 
 func (x *AuthBegin) Reset() {
 	*x = AuthBegin{}
-	mi := &file_vdb_proto_msgTypes[55]
+	mi := &file_vdb_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4415,7 +4414,7 @@ func (x *AuthBegin) String() string {
 func (*AuthBegin) ProtoMessage() {}
 
 func (x *AuthBegin) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[55]
+	mi := &file_vdb_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4428,7 +4427,7 @@ func (x *AuthBegin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthBegin.ProtoReflect.Descriptor instead.
 func (*AuthBegin) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{55}
+	return file_vdb_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *AuthBegin) GetUser() string {
@@ -4479,7 +4478,7 @@ type AuthBeginReply struct {
 
 func (x *AuthBeginReply) Reset() {
 	*x = AuthBeginReply{}
-	mi := &file_vdb_proto_msgTypes[56]
+	mi := &file_vdb_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4491,7 +4490,7 @@ func (x *AuthBeginReply) String() string {
 func (*AuthBeginReply) ProtoMessage() {}
 
 func (x *AuthBeginReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[56]
+	mi := &file_vdb_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4504,7 +4503,7 @@ func (x *AuthBeginReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthBeginReply.ProtoReflect.Descriptor instead.
 func (*AuthBeginReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{56}
+	return file_vdb_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *AuthBeginReply) GetScramble() []byte {
@@ -4551,7 +4550,7 @@ type AuthAnswer struct {
 
 func (x *AuthAnswer) Reset() {
 	*x = AuthAnswer{}
-	mi := &file_vdb_proto_msgTypes[57]
+	mi := &file_vdb_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4563,7 +4562,7 @@ func (x *AuthAnswer) String() string {
 func (*AuthAnswer) ProtoMessage() {}
 
 func (x *AuthAnswer) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[57]
+	mi := &file_vdb_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4576,7 +4575,7 @@ func (x *AuthAnswer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthAnswer.ProtoReflect.Descriptor instead.
 func (*AuthAnswer) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{57}
+	return file_vdb_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *AuthAnswer) GetAnswer() []byte {
@@ -4601,7 +4600,7 @@ type AuthReply struct {
 
 func (x *AuthReply) Reset() {
 	*x = AuthReply{}
-	mi := &file_vdb_proto_msgTypes[58]
+	mi := &file_vdb_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4613,7 +4612,7 @@ func (x *AuthReply) String() string {
 func (*AuthReply) ProtoMessage() {}
 
 func (x *AuthReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[58]
+	mi := &file_vdb_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4626,7 +4625,7 @@ func (x *AuthReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthReply.ProtoReflect.Descriptor instead.
 func (*AuthReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{58}
+	return file_vdb_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *AuthReply) GetResult() AuthResult {
@@ -4687,7 +4686,7 @@ type AuthPass struct {
 
 func (x *AuthPass) Reset() {
 	*x = AuthPass{}
-	mi := &file_vdb_proto_msgTypes[59]
+	mi := &file_vdb_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4699,7 +4698,7 @@ func (x *AuthPass) String() string {
 func (*AuthPass) ProtoMessage() {}
 
 func (x *AuthPass) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[59]
+	mi := &file_vdb_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4712,7 +4711,7 @@ func (x *AuthPass) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthPass.ProtoReflect.Descriptor instead.
 func (*AuthPass) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{59}
+	return file_vdb_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *AuthPass) GetPassword() []byte {
@@ -4732,7 +4731,7 @@ type Rewrite struct {
 
 func (x *Rewrite) Reset() {
 	*x = Rewrite{}
-	mi := &file_vdb_proto_msgTypes[60]
+	mi := &file_vdb_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4744,7 +4743,7 @@ func (x *Rewrite) String() string {
 func (*Rewrite) ProtoMessage() {}
 
 func (x *Rewrite) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[60]
+	mi := &file_vdb_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4757,7 +4756,7 @@ func (x *Rewrite) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Rewrite.ProtoReflect.Descriptor instead.
 func (*Rewrite) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{60}
+	return file_vdb_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *Rewrite) GetConnId() uint64 {
@@ -4784,7 +4783,7 @@ type ByteRange struct {
 
 func (x *ByteRange) Reset() {
 	*x = ByteRange{}
-	mi := &file_vdb_proto_msgTypes[61]
+	mi := &file_vdb_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4796,7 +4795,7 @@ func (x *ByteRange) String() string {
 func (*ByteRange) ProtoMessage() {}
 
 func (x *ByteRange) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[61]
+	mi := &file_vdb_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4809,7 +4808,7 @@ func (x *ByteRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ByteRange.ProtoReflect.Descriptor instead.
 func (*ByteRange) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{61}
+	return file_vdb_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ByteRange) GetStart() uint32 {
@@ -4836,7 +4835,7 @@ type RewriteReply struct {
 
 func (x *RewriteReply) Reset() {
 	*x = RewriteReply{}
-	mi := &file_vdb_proto_msgTypes[62]
+	mi := &file_vdb_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4848,7 +4847,7 @@ func (x *RewriteReply) String() string {
 func (*RewriteReply) ProtoMessage() {}
 
 func (x *RewriteReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[62]
+	mi := &file_vdb_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4861,7 +4860,7 @@ func (x *RewriteReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RewriteReply.ProtoReflect.Descriptor instead.
 func (*RewriteReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{62}
+	return file_vdb_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *RewriteReply) GetUnchanged() bool {
@@ -4893,7 +4892,7 @@ type DdlCaptured struct {
 
 func (x *DdlCaptured) Reset() {
 	*x = DdlCaptured{}
-	mi := &file_vdb_proto_msgTypes[63]
+	mi := &file_vdb_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4905,7 +4904,7 @@ func (x *DdlCaptured) String() string {
 func (*DdlCaptured) ProtoMessage() {}
 
 func (x *DdlCaptured) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[63]
+	mi := &file_vdb_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4918,7 +4917,7 @@ func (x *DdlCaptured) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DdlCaptured.ProtoReflect.Descriptor instead.
 func (*DdlCaptured) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{63}
+	return file_vdb_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *DdlCaptured) GetConnId() uint64 {
@@ -4989,7 +4988,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_vdb_proto_msgTypes[64]
+	mi := &file_vdb_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5001,7 +5000,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[64]
+	mi := &file_vdb_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5014,7 +5013,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{64}
+	return file_vdb_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *Event) GetKind() EventKind {
@@ -5105,7 +5104,7 @@ type QueryReceived struct {
 
 func (x *QueryReceived) Reset() {
 	*x = QueryReceived{}
-	mi := &file_vdb_proto_msgTypes[65]
+	mi := &file_vdb_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5117,7 +5116,7 @@ func (x *QueryReceived) String() string {
 func (*QueryReceived) ProtoMessage() {}
 
 func (x *QueryReceived) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[65]
+	mi := &file_vdb_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5130,7 +5129,7 @@ func (x *QueryReceived) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryReceived.ProtoReflect.Descriptor instead.
 func (*QueryReceived) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{65}
+	return file_vdb_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *QueryReceived) GetConnId() uint64 {
@@ -5163,7 +5162,7 @@ type QueryReceivedReply struct {
 
 func (x *QueryReceivedReply) Reset() {
 	*x = QueryReceivedReply{}
-	mi := &file_vdb_proto_msgTypes[66]
+	mi := &file_vdb_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5175,7 +5174,7 @@ func (x *QueryReceivedReply) String() string {
 func (*QueryReceivedReply) ProtoMessage() {}
 
 func (x *QueryReceivedReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[66]
+	mi := &file_vdb_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5188,7 +5187,7 @@ func (x *QueryReceivedReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryReceivedReply.ProtoReflect.Descriptor instead.
 func (*QueryReceivedReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{66}
+	return file_vdb_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *QueryReceivedReply) GetStatement() string {
@@ -5649,7 +5648,7 @@ func file_vdb_proto_rawDescGZIP() []byte {
 }
 
 var file_vdb_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_vdb_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
+var file_vdb_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_vdb_proto_goTypes = []any{
 	(Origin)(0),                // 0: vdb.Origin
 	(ConnKind)(0),              // 1: vdb.ConnKind
@@ -5708,29 +5707,31 @@ var file_vdb_proto_goTypes = []any{
 	(*AutoIncrement)(nil),      // 54: vdb.AutoIncrement
 	(*AutoIncrementReply)(nil), // 55: vdb.AutoIncrementReply
 	(*Truncate)(nil),           // 56: vdb.Truncate
-	(*ColumnDef)(nil),          // 57: vdb.ColumnDef
-	(*IndexDef)(nil),           // 58: vdb.IndexDef
-	(*ForeignKeyDef)(nil),      // 59: vdb.ForeignKeyDef
-	(*TableDefinition)(nil),    // 60: vdb.TableDefinition
-	(*Catalog)(nil),            // 61: vdb.Catalog
-	(*CatalogReply)(nil),       // 62: vdb.CatalogReply
-	(*Alter)(nil),              // 63: vdb.Alter
-	(*AlterReply)(nil),         // 64: vdb.AlterReply
-	(*AlterRows)(nil),          // 65: vdb.AlterRows
-	(*AlterPut)(nil),           // 66: vdb.AlterPut
-	(*Kill)(nil),               // 67: vdb.Kill
-	(*AuthBegin)(nil),          // 68: vdb.AuthBegin
-	(*AuthBeginReply)(nil),     // 69: vdb.AuthBeginReply
-	(*AuthAnswer)(nil),         // 70: vdb.AuthAnswer
-	(*AuthReply)(nil),          // 71: vdb.AuthReply
-	(*AuthPass)(nil),           // 72: vdb.AuthPass
-	(*Rewrite)(nil),            // 73: vdb.Rewrite
-	(*ByteRange)(nil),          // 74: vdb.ByteRange
-	(*RewriteReply)(nil),       // 75: vdb.RewriteReply
-	(*DdlCaptured)(nil),        // 76: vdb.DdlCaptured
-	(*Event)(nil),              // 77: vdb.Event
-	(*QueryReceived)(nil),      // 78: vdb.QueryReceived
-	(*QueryReceivedReply)(nil), // 79: vdb.QueryReceivedReply
+	(*DeleteAll)(nil),          // 57: vdb.DeleteAll
+	(*DeleteAllReply)(nil),     // 58: vdb.DeleteAllReply
+	(*ColumnDef)(nil),          // 59: vdb.ColumnDef
+	(*IndexDef)(nil),           // 60: vdb.IndexDef
+	(*ForeignKeyDef)(nil),      // 61: vdb.ForeignKeyDef
+	(*TableDefinition)(nil),    // 62: vdb.TableDefinition
+	(*Catalog)(nil),            // 63: vdb.Catalog
+	(*CatalogReply)(nil),       // 64: vdb.CatalogReply
+	(*Alter)(nil),              // 65: vdb.Alter
+	(*AlterReply)(nil),         // 66: vdb.AlterReply
+	(*AlterRows)(nil),          // 67: vdb.AlterRows
+	(*AlterPut)(nil),           // 68: vdb.AlterPut
+	(*Kill)(nil),               // 69: vdb.Kill
+	(*AuthBegin)(nil),          // 70: vdb.AuthBegin
+	(*AuthBeginReply)(nil),     // 71: vdb.AuthBeginReply
+	(*AuthAnswer)(nil),         // 72: vdb.AuthAnswer
+	(*AuthReply)(nil),          // 73: vdb.AuthReply
+	(*AuthPass)(nil),           // 74: vdb.AuthPass
+	(*Rewrite)(nil),            // 75: vdb.Rewrite
+	(*ByteRange)(nil),          // 76: vdb.ByteRange
+	(*RewriteReply)(nil),       // 77: vdb.RewriteReply
+	(*DdlCaptured)(nil),        // 78: vdb.DdlCaptured
+	(*Event)(nil),              // 79: vdb.Event
+	(*QueryReceived)(nil),      // 80: vdb.QueryReceived
+	(*QueryReceivedReply)(nil), // 81: vdb.QueryReceivedReply
 }
 var file_vdb_proto_depIdxs = []int32{
 	13, // 0: vdb.Row.values:type_name -> vdb.Value
@@ -5781,19 +5782,19 @@ var file_vdb_proto_depIdxs = []int32{
 	18, // 45: vdb.Update.images:type_name -> vdb.Images
 	17, // 46: vdb.Delete.old:type_name -> vdb.RowRef
 	13, // 47: vdb.ColumnDef.default_value:type_name -> vdb.Value
-	57, // 48: vdb.TableDefinition.columns:type_name -> vdb.ColumnDef
-	58, // 49: vdb.TableDefinition.indexes:type_name -> vdb.IndexDef
-	59, // 50: vdb.TableDefinition.foreign_keys:type_name -> vdb.ForeignKeyDef
+	59, // 48: vdb.TableDefinition.columns:type_name -> vdb.ColumnDef
+	60, // 49: vdb.TableDefinition.indexes:type_name -> vdb.IndexDef
+	61, // 50: vdb.TableDefinition.foreign_keys:type_name -> vdb.ForeignKeyDef
 	8,  // 51: vdb.Catalog.kind:type_name -> vdb.CatalogKind
-	60, // 52: vdb.Catalog.table:type_name -> vdb.TableDefinition
+	62, // 52: vdb.Catalog.table:type_name -> vdb.TableDefinition
 	19, // 53: vdb.CatalogReply.warnings:type_name -> vdb.Warning
 	9,  // 54: vdb.Alter.kinds:type_name -> vdb.AlterKind
-	60, // 55: vdb.Alter.table_def:type_name -> vdb.TableDefinition
+	62, // 55: vdb.Alter.table_def:type_name -> vdb.TableDefinition
 	10, // 56: vdb.AlterReply.verdict:type_name -> vdb.AlterVerdict
 	14, // 57: vdb.AlterPut.rows:type_name -> vdb.Row
 	18, // 58: vdb.AlterPut.images:type_name -> vdb.Images
 	11, // 59: vdb.AuthReply.result:type_name -> vdb.AuthResult
-	74, // 60: vdb.RewriteReply.remove:type_name -> vdb.ByteRange
+	76, // 60: vdb.RewriteReply.remove:type_name -> vdb.ByteRange
 	12, // 61: vdb.Event.kind:type_name -> vdb.EventKind
 	62, // [62:62] is the sub-list for method output_type
 	62, // [62:62] is the sub-list for method input_type
@@ -5813,7 +5814,7 @@ func file_vdb_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vdb_proto_rawDesc), len(file_vdb_proto_rawDesc)),
 			NumEnums:      13,
-			NumMessages:   67,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

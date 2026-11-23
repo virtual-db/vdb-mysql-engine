@@ -673,7 +673,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	b, shadows, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
+	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
 	if err != nil {
 		return nil, err
 	}

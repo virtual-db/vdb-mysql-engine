@@ -134,7 +134,7 @@ func (c *Checker) CheckParent(s core.Session, child *core.TableDef, fk mysqldef.
 	if err != nil {
 		return err
 	}
-	b, err := s.ByColumns(parent.ID, pix.ID, img, pix.Columns, vals, pix.Columns, c.rowLocks(s, pix.ID, innodb.RecordS))
+	cur, err := s.ByColumns(parent.ID, pix.ID, img, pix.Columns, vals, pix.Columns, c.rowLocks(s, pix.ID, innodb.RecordS))
 	if err != nil {
 		return err
 	}
