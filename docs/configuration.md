@@ -17,7 +17,7 @@ lower case without `VDB_`), then defaults. An invalid value stops start-up with 
 | `VDB_DELTA_MAX_BYTES` | 0 | A fixed cap on the Delta's size (0: none) |
 | `VDB_AUTO_INCREMENT_GAP` | 1000000 | Gap above the Source's AUTO_INCREMENT for new rows of mirrored tables |
 | `VDB_BATCH_ROWS`, `VDB_BATCH_BYTES` | 4096, 524288 | Rows and bytes per batch and per Source page (a page shrinks to about `VDB_BATCH_BYTES` from the table's average row size; a scan with a pushed condition reads at most `VDB_BATCH_ROWS` index entries per request) |
-| `VDB_INSERT_BATCH`, `VDB_LOOKUP_BATCH` | 1000, 1000 | Rows per bulk insert batch; keys per Source lookup |
+| `VDB_INSERT_BATCH`, `VDB_LOOKUP_BATCH` | 1000, 1000 | Rows per bulk insert batch; keys per Source lookup request (each key's rows are paged, about `VDB_BATCH_ROWS` rows per request) |
 | `VDB_SOURCE_MAX_CONNECTIONS` | from the class | Snapshot connections to the Source |
 | `VDB_SOURCE_CONNECT_WAIT` | 5s | Wait for a Source connection |
 | `VDB_SOURCE_REQUEST_TIMEOUT` | 30s | `max_execution_time` of every Source statement |

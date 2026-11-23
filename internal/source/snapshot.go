@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 	"io"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -497,11 +496,12 @@ func PageSQL(d *core.TableDef, cols core.ColumnSet, idx core.IndexID, after []co
 	return renderPage(d, project(d, cols), idx, nil, after, incl, nil, "", dir, limit, true).sql
 }
 
-// Lookup answers keys on an index in batches of vdb_lookup_batch keys.
-func (s *snapshot) Lookup(t core.TableID, idx core.IndexID, keys []core.Key, cols core.ColumnSet) (core.SourceRows, error) {
+// Lookup answers keys on an index as a cursor: vdb_lookup_batch keys per
+// request, each key's rows paged (K2).
+func (s *snapshot) Lookup(t core.TableID, idx core.IndexID, keys []core.Key, cols core.ColumnSet) (core.SourceCursor, error) {
 	d, err := s.a.table(t)
 	if err != nil {
-		return core.SourceRows{}, err
+		return nil, err
 	}
 	ix := d.Index(idx)
 	var icols []uint16
@@ -518,48 +518,182 @@ func (s *snapshot) Lookup(t core.TableID, idx core.IndexID, keys []core.Key, col
 		}
 		vals[i] = v
 	}
-	return s.tagged(d, cols, icols, vals, ShapeKeyBatch)
+	return s.keys(d, cols, icols, vals, ShapeKeyBatch, false), nil
 }
 
-func (s *snapshot) tagged(d *core.TableDef, cols core.ColumnSet, keyCols []uint16, vals [][]core.Value, shape string) (core.SourceRows, error) {
-	p := project(d, cols)
-	var out core.SourceRows
-	batch := s.a.cfg.LookupBatch
-	for start := 0; start < len(vals); start += batch {
-		end := start + batch
-		if end > len(vals) {
-			end = len(vals)
+// keys returns the cursor over the rows matching vals on keyCols.
+func (s *snapshot) keys(d *core.TableDef, cols core.ColumnSet, keyCols []uint16, vals [][]core.Value, shape string, first bool) *keyCursor {
+	return newKeyCursor(d, cols, keyCols, vals, shape, first, s.a.cfg.LookupBatch, s.a.cfg.BatchRows,
+		func(sh shaped) ([][]core.Value, error) { return s.run(d, sh) })
+}
+
+// keyCursor reads the rows of a list of keys (Source scaling plan K2). Each
+// request is one tagged UNION ALL over up to batch keys; each key's part is
+// ordered by the identity and limited, so a key with many rows never comes
+// back whole. A key whose part comes back full is asked again in the next
+// request, after its last row. With first, one row per key is enough
+// (existence checks), and no key is asked twice.
+type keyCursor struct {
+	d       *core.TableDef
+	p       projection
+	keyCols []uint16
+	vals    [][]core.Value
+	shape   string
+	first   bool
+	batch   int // keys per request (vdb_lookup_batch)
+	rows    int // rows per request (VDB_BATCH_ROWS)
+	run     func(shaped) ([][]core.Value, error)
+
+	order   []uint16
+	keyless bool
+	queue   []int                // keys still to read; continued keys first
+	after   map[int][]core.Value // a continued key's last row, in order columns
+	dup     map[int]int          // keyless: identical rows already returned at after
+}
+
+func newKeyCursor(d *core.TableDef, cols core.ColumnSet, keyCols []uint16, vals [][]core.Value, shape string, first bool,
+	batch, rows int, run func(shaped) ([][]core.Value, error)) *keyCursor {
+	c := &keyCursor{d: d, p: project(d, cols), keyCols: keyCols, vals: vals, shape: shape, first: first,
+		batch: batch, rows: rows, run: run, order: identityCols(d), keyless: d.Identity == core.WholeRow,
+		after: map[int][]core.Value{}, dup: map[int]int{}}
+	if c.batch < 1 {
+		c.batch = 1
+	}
+	for i, v := range vals {
+		if len(v) > 0 {
+			c.queue = append(c.queue, i)
 		}
-		var part [][]core.Value
-		var at []int
-		for i := start; i < end; i++ {
-			if len(vals[i]) == 0 {
-				continue
+	}
+	return c
+}
+
+// Next reads one request: the rows of the next keys, grouped by key, each
+// with the index of its key in KeyIdx.
+func (c *keyCursor) Next(maxRows int) (core.SourceRows, error) {
+	for len(c.queue) > 0 {
+		n := c.batch
+		if n > len(c.queue) {
+			n = len(c.queue)
+		}
+		// One request holds keys of one length (a prefix lookup's keys all
+		// have the same number of parts).
+		width := len(c.vals[c.queue[0]])
+		part := make([]int, 0, n)
+		var rest []int
+		for _, k := range c.queue {
+			if len(part) < n && len(c.vals[k]) == width {
+				part = append(part, k)
+			} else {
+				rest = append(rest, k)
 			}
-			part = append(part, vals[i])
-			at = append(at, i)
 		}
-		if len(part) == 0 {
-			continue
+		budget := c.rows
+		if maxRows > 0 && maxRows < budget {
+			budget = maxRows
 		}
-		raw, err := s.run(d, renderKeyBatch(d, p, keyCols[:len(part[0])], part, shape))
+		limit := budget / len(part)
+		if limit < 2 {
+			limit = 2 // a unique key's one row never looks full
+		}
+		if c.first {
+			limit = 1
+		}
+		p := c.p
+		base := len(p.exprs)
+		p.exprs = append(append([]string(nil), p.exprs...), rawCols(c.d, c.order)...)
+		pages := make([]keyPage, len(part))
+		for i, k := range part {
+			pages[i] = keyPage{vals: c.vals[k], after: c.after[k], incl: c.keyless && c.after[k] != nil, limit: limit + c.dup[k]}
+		}
+		raw, err := c.run(renderKeyPages(c.d, p, c.keyCols[:width], c.order, pages, c.shape))
 		if err != nil {
 			return core.SourceRows{}, err
 		}
-		sort.SliceStable(raw, func(i, j int) bool { return tagOf(raw[i]) < tagOf(raw[j]) })
-		got := fill(d, p, raw, 1)
-		for i, r := range raw {
-			out.Rows = append(out.Rows, got.Rows[i])
-			out.Keys = append(out.Keys, got.Keys[i])
-			out.KeyIdx = append(out.KeyIdx, uint32(at[tagOf(r)]))
+		var again []int
+		var out core.SourceRows
+		at := 0
+		for i, k := range part {
+			j := at
+			for j < len(raw) && tagOf(raw[j]) == i {
+				j++
+			}
+			got := raw[at:j]
+			at = j
+			full := len(got) == pages[i].limit && !c.first
+			// Drop the identical rows a keyless page repeats at its start.
+			for skip := c.dup[k]; skip > 0 && len(got) > 0 && equalVals(got[0][1+base:], c.after[k]); skip-- {
+				got = got[1:]
+			}
+			if full && len(got) > 0 {
+				last := got[len(got)-1][1+base:]
+				if c.keyless {
+					same := 0
+					for x := len(got) - 1; x >= 0 && equalVals(got[x][1+base:], last); x-- {
+						same++
+					}
+					if same == len(got) && equalVals(c.after[k], last) {
+						same += c.dup[k]
+					}
+					c.dup[k] = same
+				}
+				c.after[k] = append([]core.Value(nil), last...)
+				again = append(again, k)
+			} else {
+				delete(c.after, k)
+				delete(c.dup, k)
+			}
+			trimmed := make([][]core.Value, len(got))
+			for x, r := range got {
+				trimmed[x] = r[:1+base]
+			}
+			f := fill(c.d, c.p, trimmed, 1)
+			out.Rows = append(out.Rows, f.Rows...)
+			out.Keys = append(out.Keys, f.Keys...)
+			for range f.Rows {
+				out.KeyIdx = append(out.KeyIdx, uint32(k))
+			}
+		}
+		c.queue = append(again, rest...)
+		if len(out.Rows) > 0 || len(c.queue) == 0 {
+			return out, nil
 		}
 	}
-	return out, nil
+	return core.SourceRows{}, io.EOF
 }
+
+func (c *keyCursor) Close() error { c.queue = nil; return nil }
 
 func tagOf(r []core.Value) int {
 	n, _ := strconv.Atoi(string(r[0].B))
 	return n
+}
+
+// WalkKeys reads the rows of keys on keyCols through query, request by
+// request, exactly as a lookup would: it returns the rows (with the key index
+// first), every SQL statement sent; for tests against a real Source.
+func WalkKeys(query func(sql string) ([][]core.Value, error), d *core.TableDef, cols core.ColumnSet, keyCols []uint16,
+	keys [][]core.Value, batch, rows int) ([][]core.Value, []string, error) {
+	var sqls []string
+	c := newKeyCursor(d, cols, keyCols, keys, ShapeKeyBatch, false, batch, rows, func(sh shaped) ([][]core.Value, error) {
+		sqls = append(sqls, sh.sql)
+		if len(sqls) > 100000 {
+			return nil, fmt.Errorf("WalkKeys: no progress")
+		}
+		return query(sh.sql)
+	})
+	var out [][]core.Value
+	for {
+		sr, err := c.Next(0)
+		if err == io.EOF {
+			return out, sqls, nil
+		}
+		if err != nil {
+			return out, sqls, err
+		}
+		for i, r := range sr.Rows {
+			out = append(out, append([]core.Value{{B: []byte(strconv.Itoa(int(sr.KeyIdx[i])))}}, r...))
+		}
+	}
 }
 
 // Exists reports which identity keys exist on the Source.
@@ -575,14 +709,19 @@ func (s *snapshot) Exists(t core.TableID, keys []core.SourceKey) ([]bool, error)
 	icols := identityCols(d)
 	out := make([]bool, len(keys))
 	// For tables without a usable key the "key" is the whole row; ask by every column.
-	sr, err := s.tagged(d, core.ColumnSet{}, icols, vals, ShapeExists)
-	if err != nil {
-		return nil, err
+	c := s.keys(d, core.ColumnSet{}, icols, vals, ShapeExists, true)
+	for {
+		sr, err := c.Next(0)
+		if err == io.EOF {
+			return out, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range sr.KeyIdx {
+			out[k] = true
+		}
 	}
-	for _, k := range sr.KeyIdx {
-		out[k] = true
-	}
-	return out, nil
 }
 
 // Count runs SELECT COUNT(*).
@@ -601,7 +740,8 @@ func (s *snapshot) Count(t core.TableID) (uint64, error) {
 	return strconv.ParseUint(string(raw[0][0].B), 10, 64)
 }
 
-// ByColumns returns the rows whose columns cols equal one of values.
+// ByColumns returns the rows whose columns cols equal one of values, as a
+// cursor paged per value like a lookup (K3).
 func (s *snapshot) ByColumns(t core.TableID, cols core.ColumnSet, values []core.Row, want core.ColumnSet) (core.SourceCursor, error) {
 	d, err := s.a.table(t)
 	if err != nil {
@@ -611,26 +751,8 @@ func (s *snapshot) ByColumns(t core.TableID, cols core.ColumnSet, values []core.
 	for i, v := range values {
 		vals[i] = v
 	}
-	sr, err := s.tagged(d, want, cols, vals, ShapeColumns)
-	if err != nil {
-		return nil, err
-	}
-	return &onceCursor{sr: sr}, nil
+	return s.keys(d, want, cols, vals, ShapeColumns, false), nil
 }
-
-type onceCursor struct {
-	sr   core.SourceRows
-	done bool
-}
-
-func (c *onceCursor) Next(int) (core.SourceRows, error) {
-	if c.done {
-		return core.SourceRows{}, io.EOF
-	}
-	c.done = true
-	return c.sr, nil
-}
-func (c *onceCursor) Close() error { return nil }
 
 // Close commits the read-only transaction and returns the connection.
 func (s *snapshot) Close() error {

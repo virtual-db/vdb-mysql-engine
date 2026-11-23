@@ -397,16 +397,42 @@ func pageConds(d *core.TableDef, idx core.IndexID, order []uint16, ranges []core
 	return conds
 }
 
-// renderKeyBatch renders one tagged request per key, joined with UNION ALL,
-// so every row names the key it answers: `SELECT 0 AS vdb_k, cols FROM t
-// WHERE (k) = (v) UNION ALL ...` (the IN-list shape with exact key indexes).
-func renderKeyBatch(d *core.TableDef, p projection, cols []uint16, keys [][]core.Value, shape string) shaped {
-	var parts []string
+// keyPage is one key's part of a key request: the key, the row it continues
+// after (inclusive with incl, for keyless tables), and its row limit.
+type keyPage struct {
+	vals  []core.Value
+	after []core.Value
+	incl  bool
+	limit int
+}
+
+// renderKeyPages renders one tagged part per key, joined with UNION ALL, so
+// every row names the key it answers; each part is ordered by order (the
+// identity) and limited, and continues after its keyset (K2):
+//
+//	(SELECT 0 AS vdb_k, cols FROM t WHERE (k) = (v) [AND after] ORDER BY id LIMIT n)
+//	UNION ALL ... ORDER BY vdb_k, id
+//
+// The outer ORDER BY keeps each key's rows together and in order, so the
+// last row of a full part is its keyset for the next request.
+func renderKeyPages(d *core.TableDef, p projection, cols []uint16, order []uint16, keys []keyPage, shape string) shaped {
+	ocols := strings.Join(rawCols(d, order), ", ")
+	parts := make([]string, len(keys))
 	for i, k := range keys {
-		c := keyEq(d, cols, k)
-		parts = append(parts, "(SELECT "+strconv.Itoa(i)+" AS vdb_k, "+strings.Join(p.exprs, ", ")+" FROM "+tableRef(d)+" WHERE "+c+")")
+		c := keyEq(d, cols, k.vals)
+		if k.after != nil {
+			c += " AND (" + keysetCond(d, order, k.after, core.Forward, k.incl) + ")"
+		}
+		parts[i] = "(SELECT " + strconv.Itoa(i) + " AS vdb_k, " + strings.Join(p.exprs, ", ") + " FROM " + tableRef(d) +
+			" WHERE " + c + " ORDER BY " + ocols + " LIMIT " + strconv.Itoa(k.limit) + ")"
 	}
-	return shaped{sql: strings.Join(parts, " UNION ALL "), shape: shape}
+	// The outer sort names result positions: 1 is vdb_k, the order columns
+	// are the projection's last ones.
+	pos := []string{"1"}
+	for i := range order {
+		pos = append(pos, strconv.Itoa(2+len(p.exprs)-len(order)+i))
+	}
+	return shaped{sql: strings.Join(parts, " UNION ALL ") + " ORDER BY " + strings.Join(pos, ", "), shape: shape}
 }
 
 // keyEq matches one exact key. A handler key lookup matches NULL key parts
