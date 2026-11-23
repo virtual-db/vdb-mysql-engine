@@ -16,24 +16,52 @@ lower case without `VDB_`), then defaults. An invalid value stops start-up with 
 | `VDB_MEMORY_RESERVE` | 0.10 | Fraction of memory kept free; writes past it fail with 1114 |
 | `VDB_DELTA_MAX_BYTES` | 0 | A fixed cap on the Delta's size (0: none) |
 | `VDB_AUTO_INCREMENT_GAP` | 1000000 | Gap above the Source's AUTO_INCREMENT for new rows of mirrored tables |
-| `VDB_BATCH_ROWS`, `VDB_BATCH_BYTES` | 4096, 524288 | Rows and bytes per batch and per Source page |
-| `VDB_INSERT_BATCH`, `VDB_LOOKUP_BATCH` | 1000, 1000 | Rows per bulk insert batch; keys per Source lookup |
+| `VDB_BATCH_ROWS`, `VDB_BATCH_BYTES` | 4096, 524288 | Rows and bytes per batch and per Source page (a page shrinks to about `VDB_BATCH_BYTES` from the table's average row size; a scan with a pushed condition reads at most `VDB_BATCH_ROWS` index entries per request) |
+| `VDB_INSERT_BATCH`, `VDB_LOOKUP_BATCH` | 1000, 1000 | Rows per bulk insert batch; keys per Source lookup request (each key's rows are paged, about `VDB_BATCH_ROWS` rows per request) |
 | `VDB_SOURCE_MAX_CONNECTIONS` | from the class | Snapshot connections to the Source |
 | `VDB_SOURCE_CONNECT_WAIT` | 5s | Wait for a Source connection |
 | `VDB_SOURCE_REQUEST_TIMEOUT` | 30s | `max_execution_time` of every Source statement |
-| `VDB_SOURCE_REQUEST_MAX_ROWS` | 100000 | Rows per Source request |
 | `VDB_MAX_SOURCE_ROWS` | 0 | Rows one statement may read from the Source (0: no limit) |
 | `VDB_SOURCE_RETRY_WINDOW` | 10s | Retries before a snapshot opens |
 | `VDB_SOURCE_SNAPSHOT` | `on` | `off` reads without a consistent snapshot |
-| `VDB_SOURCE_SNAPSHOT_IDLE_TIMEOUT`, `VDB_SOURCE_SNAPSHOT_MAX_AGE` | 60s, 15m | Snapshot limits |
+| `VDB_SOURCE_SNAPSHOT_IDLE_TIMEOUT`, `VDB_SOURCE_SNAPSHOT_MAX_AGE` | 60s, 15m | Snapshot limits: idle time between requests, and age, checked at each statement's first Source request (a statement still reading keeps its snapshot) |
 | `VDB_SOURCE_SNAPSHOT_POLICY` | `strict` | `relaxed` renews an expired snapshot with a warning |
 | `VDB_SOURCE_BUSY_THREADS` | 64 | Background reads pause above this many running Source threads |
 | `VDB_COUNT_MAX_SHADOWED` | 100000 | Above this many changed keys, `COUNT(*)` counts rows instead |
 | `VDB_PUSHDOWN` | `on` | Push conditions to the Source |
 | `VDB_SCHEMA_POLL`, `VDB_GRANT_POLL` | 60s, 30s | Polling intervals |
-| `VDB_SOURCE_LOG_SIZE`, `VDB_SOURCE_LOG_FILE` | 10000, empty | The Source request log |
+| `VDB_SOURCE_LOG_SIZE`, `VDB_SOURCE_LOG_FILE` | 10000, empty | The Source request log: the last records kept for `vdb.source_requests` (about 140 bytes each plus their text, allocated as they arrive), and an optional JSON-lines file |
 | `VDB_LOG_FORMAT` | `json` | `json` or `text` |
 | `VDB_LOG_LEVEL` | `info` | `debug` adds debug-level logs (pushdown decisions, Source requests); environment only |
+| `VDB_COLLATIONS_UNDER_TEST` | empty | **Testing only.** Comma-separated collations treated as proven. Read the warning below before setting it |
 | `VDB_PLUGIN_DIR` | `/var/lib/vdb/plugins` | VDB plugins (none ship in v1) |
 | `VDB_MYSQLD_STOP_TIMEOUT`, `VDB_MYSQLD_RESTART_WINDOW` | 30s, 5m | `mysqld` shutdown; three crashes in the window stop the container |
 | `VDB_MYSQLD_SORT_BUFFER_SIZE` and the other `VDB_MYSQLD_*` sizes | from the class | Override one class value |
+
+## Warning: `VDB_COLLATIONS_UNDER_TEST`
+
+This setting exists for one job: the collation proof suite in vdb-tests
+(`runner collations`), which has to see VDB's own order and equality for a
+collation before that collation is proven. Do not set it anywhere else.
+
+For each collation it names, VDB trusts its sort images for that collation:
+- it reads indexes in image order, so mysqld skips its own sort;
+- it decides `=` and uniqueness by image equality, in unique checks, foreign
+  keys and lookups.
+
+If the images of a collation do not match MySQL's rules for that release,
+then with this setting on:
+- `ORDER BY` and range reads on its indexes can return rows in the wrong
+  order or miss rows;
+- a `UNIQUE` key can reject a value that is not a duplicate, or accept one
+  that is;
+- a foreign key can find a parent row that does not exist, or miss one that
+  does.
+
+None of these produce an error. The results are simply wrong.
+
+Without the setting, VDB uses only the collations proven for the release in
+`internal/collations/proven.yaml`, and lets mysqld sort and compare all
+others. VDB logs a warning at start-up whenever the setting is on. To prove a
+collation for real, run the suite and add its results to `proven.yaml` by
+pull request.

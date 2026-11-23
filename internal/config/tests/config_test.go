@@ -45,3 +45,14 @@ func TestPrecedenceAndErrors(t *testing.T) {
 		t.Fatalf("errors name the variables: %v", err)
 	}
 }
+
+func TestCollationsUnderTest(t *testing.T) {
+	c, err := load(map[string]string{"VDB_SOURCE_HOST": "db", "VDB_SOURCE_USER": "svc",
+		"VDB_COLLATIONS_UNDER_TEST": "utf8mb4_0900_ai_ci, latin1_swedish_ci,"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(c.CollationsUnderTest, "|") != "utf8mb4_0900_ai_ci|latin1_swedish_ci" {
+		t.Fatalf("collations under test: %q", c.CollationsUnderTest)
+	}
+}

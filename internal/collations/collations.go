@@ -29,6 +29,28 @@ type Proven struct {
 	order, equality map[string]bool
 }
 
+// match returns the entry of proven.yaml that covers release: an exact
+// version, or the longest listed prefix of it; "" when none does.
+func match(f file, release string) string {
+	best := ""
+	for r := range f.Releases {
+		if strings.HasPrefix(release, r) && len(r) > len(best) {
+			best = r
+		}
+	}
+	return best
+}
+
+// Listed reports whether proven.yaml has an entry for release, by the same
+// rule For uses. The image build fails without one (vdb-mysql#23).
+func Listed(release string) bool {
+	var f file
+	if err := yaml.Unmarshal(provenYAML, &f); err != nil {
+		return false
+	}
+	return match(f, release) != ""
+}
+
 // For returns the proven lists of a mysqld release (an exact version, or the
 // longest listed prefix of it).
 func For(release string) *Proven {
@@ -37,12 +59,7 @@ func For(release string) *Proven {
 	if err := yaml.Unmarshal(provenYAML, &f); err != nil {
 		return p
 	}
-	best := ""
-	for r := range f.Releases {
-		if strings.HasPrefix(release, r) && len(r) > len(best) {
-			best = r
-		}
-	}
+	best := match(f, release)
 	if best == "" {
 		return p
 	}
@@ -50,6 +67,18 @@ func For(release string) *Proven {
 		p.order[strings.ToLower(c)] = true
 	}
 	for _, c := range f.Releases[best].Equality {
+		p.equality[strings.ToLower(c)] = true
+	}
+	return p
+}
+
+// Assume treats collations as proven for order and equality, whatever the
+// release's entry says. It is for the collation proof suite only, which must
+// read the engine's image order and equality of a collation before it is
+// proven (vdb-mysql-engine#11, VDB_COLLATIONS_UNDER_TEST).
+func (p *Proven) Assume(colls []string) *Proven {
+	for _, c := range colls {
+		p.order[strings.ToLower(c)] = true
 		p.equality[strings.ToLower(c)] = true
 	}
 	return p
