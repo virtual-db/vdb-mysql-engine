@@ -17,11 +17,18 @@ import (
 
 	core "github.com/virtual-db/vdb-core"
 
+	"github.com/virtual-db/vdb-mysql-engine/internal/collations"
 	"github.com/virtual-db/vdb-mysql-engine/internal/config"
 	"github.com/virtual-db/vdb-mysql-engine/internal/server"
 	"github.com/virtual-db/vdb-mysql-engine/internal/source"
 	"github.com/virtual-db/vdb-mysql-engine/internal/supervisor"
 )
+
+// CollationsProven reports whether the collation proof suite's results
+// (proven.yaml) cover a mysqld release. vdb-mysql's image build runs it and
+// fails without them (vdb-mysql#23): on an unproven release every
+// non-binary string index would read whole tables.
+func CollationsProven(release string) bool { return collations.Listed(release) }
 
 // Config holds every engine setting (plan doc 13 §3).
 type Config struct {
