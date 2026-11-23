@@ -31,7 +31,7 @@ lower case without `VDB_`), then defaults. An invalid value stops start-up with 
 | `VDB_COUNT_MAX_SHADOWED` | 100000 | Above this many changed keys, `COUNT(*)` counts rows instead |
 | `VDB_PUSHDOWN` | `on` | Push conditions to the Source |
 | `VDB_SCHEMA_POLL`, `VDB_GRANT_POLL` | 60s, 30s | Polling intervals |
-| `VDB_SOURCE_LOG_SIZE`, `VDB_SOURCE_LOG_FILE` | 10000, empty | The Source request log |
+| `VDB_SOURCE_LOG_SIZE`, `VDB_SOURCE_LOG_FILE` | 10000, empty | The Source request log: the last records kept for `vdb.source_requests` (about 140 bytes each plus their text, allocated as they arrive), and an optional JSON-lines file |
 | `VDB_LOG_FORMAT` | `json` | `json` or `text` |
 | `VDB_LOG_LEVEL` | `info` | `debug` adds debug-level logs (pushdown decisions, Source requests); environment only |
 | `VDB_PLUGIN_DIR` | `/var/lib/vdb/plugins` | VDB plugins (none ship in v1) |

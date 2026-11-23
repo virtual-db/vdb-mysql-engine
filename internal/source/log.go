@@ -30,7 +30,8 @@ type Record struct {
 // Log is the request log. Safe for concurrent use.
 type Log struct {
 	mu      sync.Mutex
-	ring    []Record
+	size    int
+	ring    []Record // grows to size as records arrive, then wraps
 	next    int
 	full    bool
 	file    *os.File
@@ -42,12 +43,16 @@ type Log struct {
 	TotalUs atomic.Int64
 }
 
-// NewLog returns a log of size records, writing to path when set.
+// NewLog returns a log of size records, writing to path when set. The ring
+// is not allocated up front: it grows as records arrive, so a large
+// VDB_SOURCE_LOG_SIZE costs memory only for the records actually kept.
+// (Allocated up front, 3,000,000 records were 408 MB that were resident or
+// not depending on the heap's history at start-up: vdb-mysql-engine#12.)
 func NewLog(size int, path string, emit func(Record)) *Log {
 	if size <= 0 {
 		size = 10000
 	}
-	l := &Log{ring: make([]Record, size), emit: emit}
+	l := &Log{size: size, emit: emit}
 	if path != "" {
 		if f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
 			l.file = f
@@ -66,10 +71,21 @@ func (l *Log) Add(r Record) {
 		l.Errors.Add(1)
 	}
 	l.mu.Lock()
-	l.ring[l.next] = r
-	l.next = (l.next + 1) % len(l.ring)
-	if l.next == 0 {
-		l.full = true
+	if len(l.ring) < l.size {
+		if len(l.ring) == cap(l.ring) {
+			// Double, but never past size.
+			grown := make([]Record, len(l.ring), min(l.size, max(64, 2*cap(l.ring))))
+			copy(grown, l.ring)
+			l.ring = grown
+		}
+		l.ring = append(l.ring, r)
+		l.next = len(l.ring) % l.size
+		if l.next == 0 {
+			l.full = true
+		}
+	} else {
+		l.ring[l.next] = r
+		l.next = (l.next + 1) % l.size
 	}
 	if l.file != nil {
 		if b, err := json.Marshal(r); err == nil {
