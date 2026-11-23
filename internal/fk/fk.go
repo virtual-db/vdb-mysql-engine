@@ -138,6 +138,9 @@ type childFK struct {
 	fk    mysqldef.ForeignKey
 }
 
+// HasChildren reports whether a foreign key references the table.
+func (c *Checker) HasChildren(parent *core.TableDef) bool { return len(c.children(parent)) > 0 }
+
 func (c *Checker) children(parent *core.TableDef) []childFK {
 	var out []childFK
 	for _, t := range c.API.Catalog().Tables() {

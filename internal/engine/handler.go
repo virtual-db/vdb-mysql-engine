@@ -445,6 +445,16 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 			return nil, err
 		}
 		return &protocol.Empty{}, s.Truncate(core.TableID(m.Table))
+	case protocol.OpDeleteAll:
+		m, err := decode[protocol.DeleteAll](body)
+		if err != nil {
+			return nil, err
+		}
+		s, err := c.session()
+		if err != nil {
+			return nil, err
+		}
+		return c.deleteAll(s, core.TableID(m.Table))
 	case protocol.OpCatalog:
 		m, err := decode[protocol.Catalog](body)
 		if err != nil {
