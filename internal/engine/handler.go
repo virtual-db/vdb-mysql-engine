@@ -33,6 +33,11 @@ type Config struct {
 	BatchBytes       int
 	InsertBatch      int
 	AutoIncrementGap uint64
+	// StatementStarted, when set, is told each statement's start (the Source
+	// adapter checks the snapshot's age only between statements, SD-2);
+	// ConnectionEnded, when the connection ends.
+	StatementStarted func(conn uint64)
+	ConnectionEnded  func(conn uint64)
 }
 
 // SessionStats are one session's counters for vdb.sessions.
@@ -111,6 +116,9 @@ func (h *Handler) Serve(pc *protocol.Conn, hello *protocol.Hello) {
 	h.mu.Unlock()
 	defer func() {
 		c.end()
+		if h.cfg.ConnectionEnded != nil {
+			h.cfg.ConnectionEnded(c.id)
+		}
 		h.mu.Lock()
 		if h.conns[c.id] == c {
 			delete(h.conns, c.id)
@@ -298,6 +306,9 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		s, err := c.session()
 		if err != nil {
 			return nil, err
+		}
+		if c.h.cfg.StatementStarted != nil {
+			c.h.cfg.StatementStarted(c.id)
 		}
 		if err := s.StmtBegin(c.ctx); err != nil {
 			return nil, err
