@@ -460,6 +460,16 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 			return nil, err
 		}
 		return &protocol.Empty{}, s.Truncate(core.TableID(m.Table))
+	case protocol.OpDeleteAll:
+		m, err := decode[protocol.DeleteAll](body)
+		if err != nil {
+			return nil, err
+		}
+		s, err := c.session()
+		if err != nil {
+			return nil, err
+		}
+		return c.deleteAll(s, core.TableID(m.Table))
 	case protocol.OpCatalog:
 		m, err := decode[protocol.Catalog](body)
 		if err != nil {
@@ -774,6 +784,21 @@ func (c *conn) statsReply(m *protocol.Stats) (proto.Message, error) {
 		RecordsInRange: st.RecordsInRange, BatchCost: st.BatchCost, Estimated: true, DataFileLength: st.DataFileLength}
 	for _, ix := range d.Indexes {
 		rep.Indexes = append(rep.Indexes, &protocol.IndexStats{Index: uint32(ix.ID), RecPerKey: st.RecPerKey[ix.ID]})
+	}
+	if m.WholeTableDelete {
+		// mysqld reads records right before delete_all_rows and reports it
+		// as the statement's affected rows (SD-1), so it must be exact.
+		s, err := c.session()
+		if err != nil {
+			return nil, err
+		}
+		n, declined, err := s.Count(d.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !declined {
+			rep.Records, rep.Estimated = n, false
+		}
 	}
 	return rep, nil
 }

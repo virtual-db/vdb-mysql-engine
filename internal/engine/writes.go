@@ -40,6 +40,35 @@ func (c *conn) readLocks(s core.Session, m protocol.LockMode) *core.ReadLocks {
 	return rl
 }
 
+// deleteAll is a DELETE without WHERE (Source scaling plan 07, SD-1). It
+// declines, so mysqld deletes row by row, when the table has foreign-key
+// children to check or cascade. Otherwise it locks the whole table as InnoDB
+// does by locking every row: a lock on every row at READ COMMITTED and READ
+// UNCOMMITTED, where inserts of new rows go ahead, and next-key locks over
+// the whole index at REPEATABLE READ and SERIALIZABLE, where they wait. Then
+// vdb-core detaches the table inside the transaction.
+func (c *conn) deleteAll(s core.Session, t core.TableID) (*protocol.DeleteAllReply, error) {
+	d, ok := c.h.api.Catalog().Table(t)
+	if !ok {
+		return nil, &core.Error{Code: core.ErrRefused, Table: t, Msg: "unknown table"}
+	}
+	if c.fkChecks && c.fk(s).HasChildren(&d) {
+		return &protocol.DeleteAllReply{Declined: true}, nil
+	}
+	mode := innodb.RecordX
+	if c.iso.Gaps() {
+		mode = innodb.IntervalX
+	}
+	if err := c.lock(s, core.Resource{Table: t, Whole: true}, mode); err != nil {
+		return nil, err
+	}
+	n, declined, err := s.DeleteAll(t)
+	if err != nil {
+		return nil, err
+	}
+	return &protocol.DeleteAllReply{Deleted: n, Declined: declined}, nil
+}
+
 // intervalLocks locks every scanned range of a locking scan at REPEATABLE
 // READ and SERIALIZABLE: next-key locks over the merged index, stored as one
 // interval per range (D-69). An index whose order is not proven gets a

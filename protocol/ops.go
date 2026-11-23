@@ -37,6 +37,7 @@ const (
 	OpDelete        Op = 0x33
 	OpAutoIncrement Op = 0x34
 	OpTruncate      Op = 0x35
+	OpDeleteAll     Op = 0x36
 	OpCatalog       Op = 0x40
 	OpAlter         Op = 0x41
 	OpAlterRows     Op = 0x42
@@ -86,7 +87,7 @@ var opNames = map[Op]string{
 	OpRollbackTo: "RollbackTo", OpRelease: "Release", OpSnapshot: "Snapshot", OpScanOpen: "ScanOpen",
 	OpScanNext: "ScanNext", OpScanClose: "ScanClose", OpLookup: "Lookup", OpLookupNext: "LookupNext",
 	OpCount: "Count", OpStats: "Stats", OpInsert: "Insert", OpInsertBatch: "InsertBatch", OpUpdate: "Update",
-	OpDelete: "Delete", OpAutoIncrement: "AutoIncrement", OpTruncate: "Truncate", OpCatalog: "Catalog",
+	OpDelete: "Delete", OpAutoIncrement: "AutoIncrement", OpTruncate: "Truncate", OpDeleteAll: "DeleteAll", OpCatalog: "Catalog",
 	OpAlter: "Alter", OpAlterRows: "AlterRows", OpAlterPut: "AlterPut", OpSessionEnd: "SessionEnd",
 	OpKill: "Kill", OpAuthBegin: "AuthBegin", OpAuthAnswer: "AuthAnswer", OpAuthPass: "AuthPass",
 	OpAuthAbort: "AuthAbort", OpRewrite: "Rewrite", OpPing: "Ping", OpDdlCaptured: "DdlCaptured",
