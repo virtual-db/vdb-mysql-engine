@@ -2682,15 +2682,10 @@ type Stats struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Table uint32                 `protobuf:"varint,1,opt,name=table,proto3" json:"table,omitempty"`
 	// When range is set, records_in_range is asked for it on this index.
-	Index uint32 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
-	Range *Range `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
-	// whole_table_delete says the statement is a single-table DELETE of every
-	// row (no WHERE, or a constant true one, and no LIMIT), as vdb.so reads it
-	// from mysqld's parse. mysqld reports records as the affected-rows count
-	// of delete_all_rows, so vdb-mysql answers with an exact count when it can.
-	WholeTableDelete bool `protobuf:"varint,5,opt,name=whole_table_delete,json=wholeTableDelete,proto3" json:"whole_table_delete,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	Index         uint32 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	Range         *Range `protobuf:"bytes,4,opt,name=range,proto3" json:"range,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Stats) Reset() {
@@ -2742,13 +2737,6 @@ func (x *Stats) GetRange() *Range {
 		return x.Range
 	}
 	return nil
-}
-
-func (x *Stats) GetWholeTableDelete() bool {
-	if x != nil {
-		return x.WholeTableDelete
-	}
-	return false
 }
 
 type IndexStats struct {
@@ -5304,13 +5292,12 @@ const file_vdb_proto_rawDesc = "" +
 	"\n" +
 	"CountReply\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\x04R\x05count\x12\x1a\n" +
-	"\bdeclined\x18\x02 \x01(\bR\bdeclined\"\x83\x01\n" +
+	"\bdeclined\x18\x02 \x01(\bR\bdeclined\"U\n" +
 	"\x05Stats\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\rR\x05table\x12\x14\n" +
 	"\x05index\x18\x03 \x01(\rR\x05index\x12 \n" +
 	"\x05range\x18\x04 \x01(\v2\n" +
-	".vdb.RangeR\x05range\x12,\n" +
-	"\x12whole_table_delete\x18\x05 \x01(\bR\x10wholeTableDelete\"B\n" +
+	".vdb.RangeR\x05range\"B\n" +
 	"\n" +
 	"IndexStats\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\rR\x05index\x12\x1e\n" +
