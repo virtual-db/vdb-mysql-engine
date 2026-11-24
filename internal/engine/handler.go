@@ -324,6 +324,10 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		switch op {
 		case protocol.OpStmtEnd:
 			c.closeScans()
+			if c.iso.ReleaseOnStatementRollback() {
+				c.h.api.Locks().ReleaseModeSince(s, innodb.IntervalS, c.stmtMark)
+				c.h.api.Locks().ReleaseModeSince(s, innodb.IntervalX, c.stmtMark)
+			}
 			err = s.StmtEnd()
 		case protocol.OpStmtRollback:
 			c.closeScans()
@@ -560,8 +564,12 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Determine if this scan will acquire interval locks (for locking reads).
+	// intervalLocks acquires them for any locking read (not just REPEATABLE READ/SERIALIZABLE).
+	mode, ok := innodb.Record(m.Lock)
+	inInterval := ok
 	req := core.ScanRequest{Table: core.TableID(m.Table), Index: core.IndexID(m.Index), Ordered: m.Kind != protocol.ScanKind_SCAN_UNORDERED,
-		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
+		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), inInterval)}
 	if m.Backward {
 		req.Dir = core.Backward
 	}

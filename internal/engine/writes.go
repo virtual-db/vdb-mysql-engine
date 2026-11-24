@@ -239,13 +239,14 @@ func (c *conn) deleteAll(s core.Session, t core.TableID) (*protocol.DeleteAllRep
 	return &protocol.DeleteAllReply{Deleted: n, Declined: declined}, nil
 }
 
-// intervalLocks locks every scanned range of a locking scan at REPEATABLE
-// READ and SERIALIZABLE: next-key locks over the merged index, stored as one
-// interval per range (D-69). An index whose order is not proven gets a
-// whole-index lock (D-64).
+// intervalLocks locks every scanned range of a locking scan: next-key locks
+// over the merged index, stored as one interval per range (D-69). An index
+// whose order is not proven gets a whole-index lock (D-64). At READ COMMITTED
+// the interval locks are released after the statement; at REPEATABLE READ and
+// SERIALIZABLE they are kept until transaction end.
 func (c *conn) intervalLocks(s core.Session, req core.ScanRequest, m protocol.LockMode) error {
 	mode, ok := innodb.Record(m)
-	if !ok || !c.iso.Gaps() {
+	if !ok {
 		return nil
 	}
 	d, found := c.h.api.Catalog().Table(req.Table)
