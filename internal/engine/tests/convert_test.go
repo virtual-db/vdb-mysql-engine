@@ -1,22 +1,25 @@
 // Package engine_test — tests/convert_test.go
 //
-// FromBatch builds its messages from one allocation per kind; the bytes it
-// marshals to must be those of building one message per row and per column.
+// Replies that carry rows are written straight from core rows; their frames
+// must be the frames of the same replies built as protocol messages.
 package engine_test
 
 import (
 	"bytes"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	core "github.com/virtual-db/vdb-core"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/virtual-db/vdb-mysql-engine/internal/engine"
 	"github.com/virtual-db/vdb-mysql-engine/protocol"
 )
 
-// refRow and refBatch are the one-message-per-value conversion FromBatch replaced.
+// refRow and refBatch are the one-message-per-value conversion the framed
+// replies replaced.
 func refRow(r core.Row) *protocol.Row {
 	out := &protocol.Row{Values: make([]*protocol.Value, len(r))}
 	for i, v := range r {
@@ -106,39 +109,111 @@ func randBatch(r *rand.Rand) core.Batch {
 	return b
 }
 
-func TestFromBatchMatchesPerValueMessages(t *testing.T) {
-	r := rand.New(rand.NewSource(1))
-	for i := 0; i < 5000; i++ {
-		b, end := randBatch(r), r.Intn(2) == 0
-		want, err := proto.MarshalOptions{Deterministic: true}.Marshal(refBatch(b, end))
+func encodeFrame(t *testing.T, op protocol.Op, msg proto.Message) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := protocol.Encode(&buf, op.Reply(), msg); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func randWarnings(r *rand.Rand) []*protocol.Warning {
+	var ws []*protocol.Warning
+	for i := r.Intn(3); i > 0; i-- {
+		ws = append(ws, &protocol.Warning{Code: uint32(r.Intn(2000)), Text: strconv.Itoa(r.Int())})
+	}
+	return ws
+}
+
+func randImages(r *rand.Rand) [][]byte {
+	var ims [][]byte
+	for i := r.Intn(3); i > 0; i-- {
+		ims = append(ims, randBytes(r))
+	}
+	return ims
+}
+
+// The hand-written reply frames must be the frames protocol.Encode writes for
+// the same replies built one message per row and per column (refBatch, the
+// conversion they replaced).
+func TestFramedRepliesMatchEncode(t *testing.T) {
+	r := rand.New(rand.NewSource(3))
+	for i := 0; i < 3000; i++ {
+		b1, b2 := randBatch(r), randBatch(r)
+		e1, e2 := r.Intn(2) == 0, r.Intn(2) == 0
+
+		// ScanNextReply: batch only.
+		got, err := engine.FrameReply(protocol.OpScanNext, nil, []protowire.Number{1}, []core.Batch{b1}, []bool{e1}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		gotMsg := engine.FromBatch(b, end)
-		got, err := proto.MarshalOptions{Deterministic: true}.Marshal(gotMsg)
+		if want := encodeFrame(t, protocol.OpScanNext, &protocol.ScanNextReply{Batch: refBatch(b1, e1)}); !bytes.Equal(got, want) {
+			t.Fatalf("%d: ScanNextReply frame differs", i)
+		}
+
+		// ScanOpenReply, unordered (merged) and ordered (source, delta).
+		scan := uint32(r.Intn(1000))
+		ws, ims := randWarnings(r), randImages(r)
+		head, tail := &protocol.ScanOpenReply{Scan: scan}, &protocol.ScanOpenReply{ShadowImages: ims, Warnings: ws}
+		got, err = engine.FrameReply(protocol.OpScanOpen, head, []protowire.Number{2}, []core.Batch{b1}, []bool{e1}, tail)
 		if err != nil {
 			t.Fatal(err)
 		}
+		want := encodeFrame(t, protocol.OpScanOpen, &protocol.ScanOpenReply{Scan: scan, Merged: refBatch(b1, e1), ShadowImages: ims, Warnings: ws})
 		if !bytes.Equal(got, want) {
-			t.Fatalf("batch %d: marshalled bytes differ", i)
+			t.Fatalf("%d: unordered ScanOpenReply frame differs", i)
 		}
-		if !proto.Equal(gotMsg, refBatch(b, end)) {
-			t.Fatalf("batch %d: messages differ", i)
+		got, err = engine.FrameReply(protocol.OpScanOpen, head, []protowire.Number{3, 4}, []core.Batch{b1, b2}, []bool{e1, e2}, tail)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want = encodeFrame(t, protocol.OpScanOpen, &protocol.ScanOpenReply{Scan: scan, Source: refBatch(b1, e1), Delta: refBatch(b2, e2), ShadowImages: ims, Warnings: ws})
+		if !bytes.Equal(got, want) {
+			t.Fatalf("%d: ordered ScanOpenReply frame differs", i)
+		}
+
+		// LookupReply: batch, then continuation, shadow images, warnings.
+		rest := &protocol.LookupReply{Continuation: randBytes(r), ShadowImages: ims, Warnings: ws}
+		got, err = engine.FrameReply(protocol.OpLookup, nil, []protowire.Number{1}, []core.Batch{b1}, []bool{e1}, rest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want = encodeFrame(t, protocol.OpLookup, &protocol.LookupReply{Batch: refBatch(b1, e1), Continuation: rest.Continuation, ShadowImages: ims, Warnings: ws})
+		if !bytes.Equal(got, want) {
+			t.Fatalf("%d: LookupReply frame differs", i)
 		}
 	}
 }
 
-func BenchmarkFromBatch(b *testing.B) {
+// benchBatch is a full batch of narrow rows (4,096 rows of 2 columns).
+func benchBatch() core.Batch {
 	r := rand.New(rand.NewSource(2))
 	var batch core.Batch
 	for i := 0; i < 4096; i++ {
 		batch.Rows = append(batch.Rows, randRow(r, 2))
 		batch.Refs = append(batch.Refs, core.RowRef{PK: core.Key{Image: randBytes(r)}, SourceKey: randBytes(r)})
 	}
+	return batch
+}
+
+// BenchmarkMessageScanNext is the reply as it was built before: messages, then Encode.
+func BenchmarkMessageScanNext(b *testing.B) {
+	batch := benchBatch()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		var buf bytes.Buffer
-		if err := protocol.Encode(&buf, protocol.OpScanNext, &protocol.ScanNextReply{Batch: engine.FromBatch(batch, false)}); err != nil {
+		if err := protocol.Encode(&buf, protocol.OpScanNext.Reply(), &protocol.ScanNextReply{Batch: refBatch(batch, false)}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkFramedScanNext(b *testing.B) {
+	batch := benchBatch()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := engine.FrameReply(protocol.OpScanNext, nil, []protowire.Number{1}, []core.Batch{batch}, []bool{false}, nil); err != nil {
 			b.Fatal(err)
 		}
 	}

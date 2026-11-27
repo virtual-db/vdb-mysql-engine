@@ -147,7 +147,17 @@ func (h *Handler) Serve(pc *protocol.Conn, hello *protocol.Hello) {
 			}
 			continue
 		}
-		if err := pc.Reply(op, reply); err != nil {
+		if f, ok := reply.(*framed); ok {
+			frame, err := f.frame(op)
+			if err != nil {
+				return
+			}
+			if err := pc.Frame(frame); err != nil {
+				return
+			}
+			continue
+		}
+		if err := pc.Reply(op, reply.(proto.Message)); err != nil {
 			return
 		}
 	}
@@ -284,7 +294,9 @@ func (c *conn) warnings(t core.TableID, version uint64) []*protocol.Warning {
 	return nil
 }
 
-func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
+// handle answers one request: a proto.Message, or a *framed reply that
+// carries rows.
+func (c *conn) handle(op protocol.Op, body []byte) (any, error) {
 	switch op {
 	case protocol.OpTableOpen:
 		m, err := decode[protocol.TableOpen](body)
@@ -555,7 +567,7 @@ func (c *conn) next(cur core.Cursor, max int) (core.Batch, bool, error) {
 	return b, false, err
 }
 
-func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
+func (c *conn) scanOpen(m *protocol.ScanOpen) (*framed, error) {
 	s, err := c.session()
 	if err != nil {
 		return nil, err
@@ -583,10 +595,14 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 	c.nextID++
 	id := c.nextID
 	sc := &scan{h: sh, table: req.Table}
-	rep := &protocol.ScanOpenReply{Scan: id, Warnings: c.warnings(req.Table, m.Version)}
+	// ScanOpenReply: scan (1), then the batches (2-4), then shadow_images
+	// (5) and warnings (6).
+	rep := &framed{head: &protocol.ScanOpenReply{Scan: id}}
+	tail := &protocol.ScanOpenReply{Warnings: c.warnings(req.Table, m.Version)}
 	for _, img := range sh.ShadowImages() {
-		rep.ShadowImages = append(rep.ShadowImages, img)
+		tail.ShadowImages = append(tail.ShadowImages, img)
 	}
+	rep.tail = tail
 	if !req.Ordered {
 		b, end, err := c.next(sh.Merged(), max)
 		if err != nil {
@@ -594,7 +610,7 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 			return nil, err
 		}
 		sc.done[0] = end
-		rep.Merged = fromBatch(b, end)
+		rep.batches = append(rep.batches, newWireBatch(2, b, end))
 		c.observe(req.Table, b, start)
 	} else {
 		b, end, err := c.next(sh.Source(), max)
@@ -603,14 +619,14 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 			return nil, err
 		}
 		sc.done[1] = end
-		rep.Source = fromBatch(b, end)
+		rep.batches = append(rep.batches, newWireBatch(3, b, end))
 		db, dend, err := c.next(sh.Delta(), max)
 		if err != nil {
 			_ = sh.Close()
 			return nil, err
 		}
 		sc.done[2] = dend
-		rep.Delta = fromBatch(db, dend)
+		rep.batches = append(rep.batches, newWireBatch(4, db, dend))
 		c.observe(req.Table, b, start)
 	}
 	c.scans[id] = sc
@@ -628,7 +644,7 @@ func (c *conn) observe(t core.TableID, b core.Batch, start time.Time) {
 	c.h.stats.Observe(t, len(b.Rows), n, time.Since(start))
 }
 
-func (c *conn) scanNext(m *protocol.ScanNext) (proto.Message, error) {
+func (c *conn) scanNext(m *protocol.ScanNext) (any, error) {
 	sc := c.scans[m.Scan]
 	if sc == nil {
 		return nil, &core.Error{Code: core.ErrInternal, Msg: "unknown scan " + strconv.Itoa(int(m.Scan))}
@@ -660,11 +676,11 @@ func (c *conn) scanNext(m *protocol.ScanNext) (proto.Message, error) {
 	}
 	sc.done[idx] = end
 	c.observe(sc.table, b, start)
-	return &protocol.ScanNextReply{Batch: fromBatch(b, end)}, nil
+	return &framed{batches: []*wireBatch{newWireBatch(1, b, end)}}, nil // ScanNextReply.batch
 }
 
 // lookup answers keys; a reply larger than the byte cap is cut and continued.
-func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
+func (c *conn) lookup(m *protocol.Lookup) (*framed, error) {
 	s, err := c.session()
 	if err != nil {
 		return nil, err
@@ -682,7 +698,8 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 		rep.ShadowImages = append(rep.ShadowImages, img)
 	}
 	st := &lookupState{cur: cur}
-	if err := c.fillLookup(st, rep); err != nil {
+	b, err := c.fillLookup(st)
+	if err != nil {
 		_ = cur.Close()
 		return nil, err
 	}
@@ -690,7 +707,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 		c.keepLookup(st)
 		rep.Continuation = st.key
 	}
-	return rep, nil
+	return lookupReply(b, st.done, rep), nil
 }
 
 // lookupState is a lookup whose rows did not fit one reply: vdb.so reads the
@@ -733,10 +750,16 @@ func (c *conn) closeLookups() {
 	}
 }
 
+// lookupReply is a LookupReply: the batch (1), then rest's continuation
+// (2), shadow_images (3) and warnings (4).
+func lookupReply(b core.Batch, end bool, rest *protocol.LookupReply) *framed {
+	return &framed{batches: []*wireBatch{newWireBatch(1, b, end)}, tail: rest}
+}
+
 // fillLookup reads the cursor into one reply: up to VDB_BATCH_ROWS rows and
 // VDB_BATCH_BYTES, or to its end. Reading on to the end when it is near keeps
 // a lookup of a few rows to one request and no open cursor.
-func (c *conn) fillLookup(st *lookupState, rep *protocol.LookupReply) error {
+func (c *conn) fillLookup(st *lookupState) (core.Batch, error) {
 	var all core.Batch
 	size := 0
 	for len(all.Rows) < c.h.cfg.BatchRows && size < c.h.cfg.BatchBytes {
@@ -753,20 +776,20 @@ func (c *conn) fillLookup(st *lookupState, rep *protocol.LookupReply) error {
 			break
 		}
 		if err != nil {
-			return err
+			return core.Batch{}, err
 		}
 	}
-	rep.Batch = fromBatch(all, st.done)
-	return nil
+	return all, nil
 }
 
-func (c *conn) lookupNext(m *protocol.LookupNext) (proto.Message, error) {
+func (c *conn) lookupNext(m *protocol.LookupNext) (any, error) {
 	st := c.lookups[string(m.Continuation)]
 	if st == nil {
 		return &protocol.LookupReply{Batch: &protocol.Batch{End: true}}, nil
 	}
 	rep := &protocol.LookupReply{}
-	if err := c.fillLookup(st, rep); err != nil {
+	b, err := c.fillLookup(st)
+	if err != nil {
 		_ = st.cur.Close()
 		delete(c.lookups, string(m.Continuation))
 		return nil, err
@@ -776,7 +799,7 @@ func (c *conn) lookupNext(m *protocol.LookupNext) (proto.Message, error) {
 	} else {
 		rep.Continuation = st.key
 	}
-	return rep, nil
+	return lookupReply(b, st.done, rep), nil
 }
 
 func (c *conn) statsReply(m *protocol.Stats) (proto.Message, error) {
@@ -846,7 +869,7 @@ func (c *conn) insert(t uint32, prows []*protocol.Row, pims []*protocol.Images) 
 	return rep, nil
 }
 
-func (c *conn) alterRows(m *protocol.AlterRows) (proto.Message, error) {
+func (c *conn) alterRows(m *protocol.AlterRows) (any, error) {
 	s, err := c.session()
 	if err != nil {
 		return nil, err
@@ -864,7 +887,7 @@ func (c *conn) alterRows(m *protocol.AlterRows) (proto.Message, error) {
 			return nil, err
 		}
 	}
-	return &protocol.ScanNextReply{Batch: fromBatch(all, true)}, nil
+	return &framed{batches: []*wireBatch{newWireBatch(1, all, true)}}, nil // ScanNextReply.batch
 }
 
 func lower(s string) string { return strings.ToLower(s) }
