@@ -73,16 +73,20 @@ func TestIsolation(t *testing.T) {
 		scope core.SnapshotScope
 		view  core.ReadView
 		gaps  bool
+		// unmatched: handler::unlock_row releases a row the WHERE rejected
+		// (InnoDB: READ COMMITTED and READ UNCOMMITTED only).
+		unmatched bool
 	}{
-		{protocol.Isolation_READ_UNCOMMITTED, core.PerStatement, core.ViewUncommitted, false},
-		{protocol.Isolation_READ_COMMITTED, core.PerStatement, core.ViewSnapshot, false},
-		{protocol.Isolation_REPEATABLE_READ, core.PerTransaction, core.ViewSnapshot, true},
-		{protocol.Isolation_SERIALIZABLE, core.PerTransaction, core.ViewSnapshot, true},
+		{protocol.Isolation_READ_UNCOMMITTED, core.PerStatement, core.ViewUncommitted, false, true},
+		{protocol.Isolation_READ_COMMITTED, core.PerStatement, core.ViewSnapshot, false, true},
+		{protocol.Isolation_REPEATABLE_READ, core.PerTransaction, core.ViewSnapshot, true, false},
+		{protocol.Isolation_SERIALIZABLE, core.PerTransaction, core.ViewSnapshot, true, false},
 	}
 	for _, c := range cases {
 		i := Isolation{Level: c.level}
-		if i.Scope() != c.scope || i.View() != c.view || i.Gaps() != c.gaps || i.ReleaseOnStatementRollback() == c.gaps {
-			t.Errorf("%v: scope %v view %v gaps %v", c.level, i.Scope(), i.View(), i.Gaps())
+		if i.Scope() != c.scope || i.View() != c.view || i.Gaps() != c.gaps || i.ReleaseOnStatementRollback() == c.gaps ||
+			i.ReleasesUnmatched() != c.unmatched {
+			t.Errorf("%v: scope %v view %v gaps %v releases unmatched %v", c.level, i.Scope(), i.View(), i.Gaps(), i.ReleasesUnmatched())
 		}
 	}
 }
