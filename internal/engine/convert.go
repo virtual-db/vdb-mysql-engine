@@ -120,16 +120,70 @@ func toStmtContext(m *protocol.StmtBegin, iso innodb.Isolation) core.StmtContext
 		LockWait: time.Duration(m.LockWaitMs) * time.Millisecond, Eval: eval, ReadOnly: m.ReadOnly, Digest: m.Digest}
 }
 
+// FromBatch is fromBatch, for tests.
+func FromBatch(b core.Batch, end bool) *protocol.Batch { return fromBatch(b, end) }
+
+// fromBatch builds the protocol form of a batch. The messages are only
+// marshalled and dropped, so each kind comes from one allocation per batch
+// instead of one per row and per column; the bytes are not copied.
 func fromBatch(b core.Batch, end bool) *protocol.Batch {
 	out := &protocol.Batch{End: end}
-	for i, r := range b.Rows {
-		out.Rows = append(out.Rows, fromRow(r))
-		if i < len(b.Refs) {
-			out.Refs = append(out.Refs, fromRef(b.Refs[i]))
+	if len(b.Rows) > 0 {
+		nv := 0
+		for i, r := range b.Rows {
+			nv += len(r)
+			if i < len(b.Refs) {
+				nv += len(b.Refs[i].Whole)
+			}
+		}
+		vals := make([]protocol.Value, nv)
+		vptr := make([]*protocol.Value, nv)
+		for i := range vals {
+			vptr[i] = &vals[i]
+		}
+		nr := len(b.Rows)
+		if len(b.Refs) < nr {
+			nr = len(b.Refs)
+		}
+		rows := make([]protocol.Row, len(b.Rows), len(b.Rows)+nr)
+		out.Rows = make([]*protocol.Row, len(b.Rows))
+		fill := func(row *protocol.Row, r core.Row) {
+			row.Values, vptr = vptr[:len(r):len(r)], vptr[len(r):]
+			for j, v := range r {
+				if v.Null {
+					row.Values[j].Null = true
+				} else {
+					row.Values[j].B = v.B
+				}
+			}
+		}
+		for i, r := range b.Rows {
+			fill(&rows[i], r)
+			out.Rows[i] = &rows[i]
+		}
+		if nr > 0 {
+			refs := make([]protocol.RowRef, nr)
+			keys := make([]protocol.Key, nr)
+			out.Refs = make([]*protocol.RowRef, nr)
+			for i := range refs {
+				r := b.Refs[i]
+				keys[i].Image, keys[i].Raw = r.PK.Image, r.PK.Raw
+				refs[i].Pk, refs[i].SourceKey = &keys[i], r.SourceKey
+				if r.Origin == core.OriginDelta {
+					refs[i].Origin = protocol.Origin_ORIGIN_DELTA
+				}
+				if r.Whole != nil {
+					rows = rows[:len(rows)+1] // within the capacity: no row moves
+					w := &rows[len(rows)-1]
+					fill(w, r.Whole)
+					refs[i].Whole = w
+				}
+				out.Refs[i] = &refs[i]
+			}
 		}
 	}
-	for _, k := range b.KeyIdx {
-		out.KeyIdx = append(out.KeyIdx, k)
+	if len(b.KeyIdx) > 0 {
+		out.KeyIdx = append([]uint32(nil), b.KeyIdx...)
 	}
 	return out
 }

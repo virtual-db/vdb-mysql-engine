@@ -4,6 +4,7 @@
 package protocol
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -11,16 +12,27 @@ import (
 )
 
 // Encode writes msg as a frame of op.
+// The body is marshalled straight after the frame header, so the frame is
+// one allocation and one write, with no copy of the body.
 func Encode(w io.Writer, op Op, msg proto.Message) error {
-	var body []byte
-	if msg != nil {
-		var err error
-		body, err = proto.Marshal(msg)
-		if err != nil {
-			return fmt.Errorf("protocol: marshal %s: %w", op, err)
-		}
+	if msg == nil {
+		return WriteFrame(w, op, nil)
 	}
-	return WriteFrame(w, op, body)
+	size := proto.Size(msg)
+	if size > MaxBody {
+		return ErrTooLarge
+	}
+	buf, err := proto.MarshalOptions{UseCachedSize: true}.MarshalAppend(make([]byte, 5, 5+size), msg)
+	if err != nil {
+		return fmt.Errorf("protocol: marshal %s: %w", op, err)
+	}
+	if len(buf)-5 > MaxBody {
+		return ErrTooLarge
+	}
+	buf[0] = byte(op)
+	binary.LittleEndian.PutUint32(buf[1:], uint32(len(buf)-5))
+	_, err = w.Write(buf)
+	return err
 }
 
 // Decode unmarshals a body into msg.

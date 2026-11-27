@@ -198,6 +198,7 @@ func (a *Adapter) run(ctx context.Context, q querier, conn uint64, digest string
 	cols, _ := rows.Columns()
 	var out [][]core.Value
 	var nbytes int64
+	var slab []core.Value
 	raw := make([]sql.RawBytes, len(cols))
 	ptrs := make([]any, len(cols))
 	for i := range raw {
@@ -209,16 +210,7 @@ func (a *Adapter) run(ctx context.Context, q querier, conn uint64, digest string
 			a.Log.Add(rec)
 			return nil, err
 		}
-		r := make([]core.Value, len(raw))
-		for i, b := range raw {
-			if b == nil {
-				r[i] = core.Value{Null: true}
-			} else {
-				r[i] = core.Value{B: append([]byte(nil), b...)}
-				nbytes += int64(len(b))
-			}
-		}
-		out = append(out, r)
+		out = append(out, copyRow(raw, &slab, &nbytes))
 	}
 	err = rows.Err()
 	rec.Duration, rec.Rows, rec.Bytes = time.Since(start), int64(len(out)), nbytes
@@ -227,6 +219,47 @@ func (a *Adapter) run(ctx context.Context, q querier, conn uint64, digest string
 	}
 	a.Log.Add(rec)
 	return out, err
+}
+
+// slabRows is how many rows' value headers copyRow takes from one allocation.
+// A row kept after its batch keeps at most that many rows' headers (never
+// their bytes) reachable.
+const slabRows = 64
+
+// copyRow copies one driver row out of the driver's buffers, which are valid
+// only until the next Next: the bytes of all its values go into one
+// allocation and its value headers come from slab. Each value is capped at
+// its own length, so an append to one never writes into the next.
+func copyRow(raw []sql.RawBytes, slab *[]core.Value, nbytes *int64) []core.Value {
+	n := 0
+	for _, b := range raw {
+		n += len(b)
+	}
+	if len(*slab) < len(raw) {
+		*slab = make([]core.Value, len(raw)*slabRows)
+	}
+	r := (*slab)[:len(raw):len(raw)]
+	*slab = (*slab)[len(raw):]
+	var buf []byte
+	if n > 0 {
+		buf = make([]byte, n)
+	}
+	off := 0
+	for i, b := range raw {
+		if b == nil {
+			r[i] = core.Value{Null: true}
+			continue
+		}
+		if len(b) == 0 {
+			r[i] = core.Value{} // as append([]byte(nil), b...) gave: nil, not NULL
+			continue
+		}
+		end := off + copy(buf[off:], b)
+		r[i] = core.Value{B: buf[off:end:end]}
+		off = end
+	}
+	*nbytes += int64(n)
+	return r
 }
 
 // Background runs a fixed catalog read on the background pool.
