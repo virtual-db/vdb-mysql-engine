@@ -204,7 +204,7 @@ func covered(have []bool, cols []uint16) bool {
 // transaction held it before this statement; at REPEATABLE READ and
 // SERIALIZABLE it keeps it, and so does VDB.
 func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef) {
-	if c.iso.Gaps() {
+	if !c.iso.ReleasesUnmatched() {
 		return
 	}
 	c.h.api.Locks().Release(s, innodb.Row(t, ref.SourceKey, ref.PK.Image), c.stmtMark)
