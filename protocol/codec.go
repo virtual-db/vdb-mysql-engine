@@ -13,7 +13,10 @@ import (
 
 // Encode writes msg as a frame of op.
 // The body is marshalled straight after the frame header, so the frame is
-// one allocation and one write, with no copy of the body.
+// one allocation and one write, with no copy of the body. The size measured
+// by proto.Size is reused (UseCachedSize), so msg must not be changed or
+// shared with another goroutine while Encode runs; replies are built per
+// request.
 func Encode(w io.Writer, op Op, msg proto.Message) error {
 	if msg == nil {
 		return WriteFrame(w, op, nil)

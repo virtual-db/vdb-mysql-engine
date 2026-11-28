@@ -216,6 +216,8 @@ func (f *framed) frame(op protocol.Op) ([]byte, error) {
 		return nil, protocol.ErrTooLarge
 	}
 	buf := make([]byte, 5, 5+size)
+	// head and tail are built per request and not shared, so the sizes
+	// proto.Size just cached stay valid for MarshalAppend.
 	opts := proto.MarshalOptions{UseCachedSize: true}
 	var err error
 	if f.head != nil {

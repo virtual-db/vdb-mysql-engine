@@ -226,6 +226,17 @@ func (a *Adapter) run(ctx context.Context, q querier, conn uint64, digest string
 // their bytes) reachable.
 const slabRows = 64
 
+// CopyRows copies driver rows as run does, one slab for all of them (tests).
+func CopyRows(rows [][]sql.RawBytes) [][]core.Value {
+	var slab []core.Value
+	var n int64
+	out := make([][]core.Value, len(rows))
+	for i, r := range rows {
+		out[i] = copyRow(r, &slab, &n)
+	}
+	return out
+}
+
 // copyRow copies one driver row out of the driver's buffers, which are valid
 // only until the next Next: the bytes of all its values go into one
 // allocation and its value headers come from slab. Each value is capped at

@@ -225,7 +225,9 @@ func (s *snapshot) run(d *core.TableDef, sh shaped) ([][]core.Value, error) {
 
 // fill turns result rows of a projection into requested rows and keys.
 // The rows' value headers share one allocation per call (the bytes stay the
-// driver copies'); each row is capped at its own length.
+// driver copies'); each row is capped at its own length. Rows are valid for
+// their batch: anything that keeps one longer must copy it, or it keeps the
+// whole page's headers reachable.
 func fill(d *core.TableDef, p projection, raw [][]core.Value, skip int) core.SourceRows {
 	if len(raw) == 0 {
 		return core.SourceRows{}
