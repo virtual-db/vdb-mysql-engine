@@ -9,7 +9,11 @@ One container runs two processes as user `vdb`: `vdb-mysql` and the `mysqld` it 
 2. **Reads.** Every table uses the `vdb_mysql_storage` engine. A scan reads the Source in pages inside a consistent
    snapshot and merges them with the Delta: rows the environment updated or deleted are hidden, its own rows added.
    Ordered index scans interleave the two sides in MySQL's sort order; `COUNT(*)` is answered exactly with one Source
-   count and a correction.
+   count and a correction. Which reads lock is InnoDB's rule, decided here from the raw values `mysqld` gives the
+   table handle (statement type, table lock type, LOCK TABLES): plain `SELECT` reads the snapshot; `FOR SHARE`,
+   `FOR UPDATE` and the reads inside write statements (`INSERT … SELECT`, `UPDATE`/`DELETE` with subqueries,
+   multi-table writes, `SET`/`DO` with subqueries) lock and read the newest committed rows, at the isolation levels
+   where InnoDB does. At READ COMMITTED a row that fails the `WHERE` gives back only the lock its read created.
 3. **Writes.** Inserts, updates and deletes go to the Delta, with uniqueness checked against the Delta and the
    Source, row and gap locks, foreign keys enforced as InnoDB enforces them, and savepoints. The Source is never
    written: the service account can only read, its session is read-only, and every statement is built from fixed

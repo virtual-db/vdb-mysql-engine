@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/go-sql-driver/mysql v1.10.2
-	github.com/virtual-db/vdb-core v0.1.0-alpha.4
+	github.com/virtual-db/vdb-core v0.1.0-alpha.4.0.20261128171713-4ae402b88289
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 	vitess.io/vitess v0.24.5

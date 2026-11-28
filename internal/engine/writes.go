@@ -46,7 +46,12 @@ func (c *conn) readLocks(s core.Session, m protocol.LockMode, t core.TableID, id
 	}
 	rl := &core.ReadLocks{
 		Row: func(t core.TableID, key core.KeyImage) error {
-			return c.lock(s, core.Resource{Table: t, Point: key}, rowMode)
+			created, err := c.h.api.Locks().AcquireNew(s, core.Resource{Table: t, Point: key}, rowMode, c.onWait)
+			if err != nil {
+				return err
+			}
+			c.noteLock(key, m, created && rowMode == mode)
+			return nil
 		},
 		Probe: func(t core.TableID, row core.Row, cols core.ColumnSet) error {
 			return c.probeEntries(s, t, row, cols, mode, only(idx))
@@ -200,14 +205,54 @@ func covered(have []bool, cols []uint16) bool {
 
 // unlockRow is handler::unlock_row (plan 03 L3): mysqld found that the row a
 // locking read just returned does not match the WHERE. At READ COMMITTED and
-// READ UNCOMMITTED InnoDB then releases the row's record lock, unless the
-// transaction held it before this statement; at REPEATABLE READ and
-// SERIALIZABLE it keeps it, and so does VDB.
-func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef) {
+// READ UNCOMMITTED InnoDB then releases the record lock that read newly
+// created on the row, in the read's mode, and nothing else
+// (row_prebuilt_t::try_unlock, new_rec_lock): a lock the transaction already
+// held, or a write lock the same statement took on the row, stays. newLock
+// is the mode the read created (RowRef.new_lock, see noteLock); vdb.so sends
+// Unlock only for such rows. At REPEATABLE READ and SERIALIZABLE InnoDB keeps
+// the lock, and so does VDB, whatever the flag says.
+func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef, newLock protocol.LockMode) {
 	if c.iso.Gaps() {
 		return
 	}
-	c.h.api.Locks().Release(s, innodb.Row(t, ref.SourceKey, ref.PK.Image), c.stmtMark)
+	mode, ok := innodb.Record(newLock)
+	if !ok {
+		return
+	}
+	c.h.api.Locks().ReleaseMode(s, innodb.Row(t, ref.SourceKey, ref.PK.Image), mode, c.stmtMark)
+}
+
+// noteLock records, for the current request's replies, whether the read in
+// protocol mode m newly created the record lock on the row with lock key
+// key. A later read of the same row in the request overwrites it.
+func (c *conn) noteLock(key core.KeyImage, m protocol.LockMode, created bool) {
+	if c.newLocks == nil {
+		c.newLocks = map[string]protocol.LockMode{}
+	}
+	if created {
+		c.newLocks[string(key)] = m
+	} else {
+		delete(c.newLocks, string(key))
+	}
+}
+
+// fromBatch converts a batch for a reply and marks each ref whose record
+// lock the read newly created (RowRef.new_lock).
+func (c *conn) fromBatch(b core.Batch, end bool) *protocol.Batch {
+	out := fromBatch(b, end)
+	if len(c.newLocks) == 0 {
+		return out
+	}
+	for i, r := range b.Refs {
+		if i >= len(out.Refs) {
+			break
+		}
+		if m, ok := c.newLocks[string(core.LockKey(r.SourceKey, r.PK.Image))]; ok {
+			out.Refs[i].NewLock = m
+		}
+	}
+	return out
 }
 
 // deleteAll is a DELETE without WHERE (Source scaling plan 07, SD-1). It

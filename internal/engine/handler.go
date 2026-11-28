@@ -136,6 +136,7 @@ func (h *Handler) Serve(pc *protocol.Conn, hello *protocol.Hello) {
 			_ = pc.Reply(op, &protocol.Empty{})
 			return
 		}
+		clear(c.newLocks)
 		reply, err := c.handle(op, body)
 		if err != nil {
 			if pe, ok := err.(*protoErr); ok {
@@ -196,6 +197,11 @@ type conn struct {
 	fkChecks bool
 	stmtMark core.LockMark
 	waited   bool
+	// newLocks holds, for the current request, the rows whose record lock a
+	// locking read newly created, by lock key, with the read's mode; the
+	// replies mark those refs (RowRef.new_lock) so vdb.so sends Unlock only
+	// for them (readlock.go).
+	newLocks map[string]protocol.LockMode
 }
 
 type scan struct {
@@ -301,7 +307,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if !m.Bka {
 			c.noBKA.Add(1)
 		}
-		c.iso = innodb.Isolation{Level: m.Isolation}
+		c.iso = innodb.Isolation{Level: m.Isolation, Autocommit: m.Autocommit}
 		c.fkChecks = m.ForeignKeyChecks
 		c.ctx = toStmtContext(m, c.iso)
 		s, err := c.session()
@@ -390,7 +396,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.unlockRow(s, core.TableID(m.Table), toRef(m.Ref))
+		c.unlockRow(s, core.TableID(m.Table), toRef(m.Ref), m.GetRef().GetNewLock())
 		return &protocol.Empty{}, nil
 	case protocol.OpLookup:
 		m, err := decode[protocol.Lookup](body)
@@ -408,6 +414,12 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		m, err := decode[protocol.Count](body)
 		if err != nil {
 			return nil, err
+		}
+		if c.iso.ReadLock(m.Facts) != protocol.LockMode_LOCK_NONE {
+			// A locking read: InnoDB's records() scans and locks every row
+			// (row_scan_index_for_mysql), and the scan reads the newest
+			// committed rows. Decline, so mysqld counts through ScanOpen.
+			return &protocol.CountReply{Declined: true}, nil
 		}
 		s, err := c.session()
 		if err != nil {
@@ -560,15 +572,16 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
+	lock := c.iso.ReadLock(m.Facts)
 	req := core.ScanRequest{Table: core.TableID(m.Table), Index: core.IndexID(m.Index), Ordered: m.Kind != protocol.ScanKind_SCAN_UNORDERED,
-		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
+		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
 	if m.Backward {
 		req.Dir = core.Backward
 	}
 	for _, r := range m.Ranges {
 		req.Ranges = append(req.Ranges, toRange(r))
 	}
-	if err := c.intervalLocks(s, req, m.Lock); err != nil {
+	if err := c.intervalLocks(s, req, lock); err != nil {
 		return nil, err
 	}
 	start := time.Now()
@@ -594,7 +607,7 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 			return nil, err
 		}
 		sc.done[0] = end
-		rep.Merged = fromBatch(b, end)
+		rep.Merged = c.fromBatch(b, end)
 		c.observe(req.Table, b, start)
 	} else {
 		b, end, err := c.next(sh.Source(), max)
@@ -603,14 +616,14 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 			return nil, err
 		}
 		sc.done[1] = end
-		rep.Source = fromBatch(b, end)
+		rep.Source = c.fromBatch(b, end)
 		db, dend, err := c.next(sh.Delta(), max)
 		if err != nil {
 			_ = sh.Close()
 			return nil, err
 		}
 		sc.done[2] = dend
-		rep.Delta = fromBatch(db, dend)
+		rep.Delta = c.fromBatch(db, dend)
 		c.observe(req.Table, b, start)
 	}
 	c.scans[id] = sc
@@ -660,7 +673,7 @@ func (c *conn) scanNext(m *protocol.ScanNext) (proto.Message, error) {
 	}
 	sc.done[idx] = end
 	c.observe(sc.table, b, start)
-	return &protocol.ScanNextReply{Batch: fromBatch(b, end)}, nil
+	return &protocol.ScanNextReply{Batch: c.fromBatch(b, end)}, nil
 }
 
 // lookup answers keys; a reply larger than the byte cap is cut and continued.
@@ -673,7 +686,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
+	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, c.iso.ReadLock(m.Facts), core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
 	if err != nil {
 		return nil, err
 	}
@@ -756,7 +769,7 @@ func (c *conn) fillLookup(st *lookupState, rep *protocol.LookupReply) error {
 			return err
 		}
 	}
-	rep.Batch = fromBatch(all, st.done)
+	rep.Batch = c.fromBatch(all, st.done)
 	return nil
 }
 

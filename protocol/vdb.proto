@@ -52,6 +52,12 @@ message RowRef {
   Key pk = 2;
   bytes source_key = 3;
   Row whole = 4;
+  // new_lock is set by vdb-mysql on a row a locking read returned when that
+  // read newly created the row's record lock, in this mode (InnoDB's
+  // new_rec_lock). vdb.so sends Unlock for the current row only when it is
+  // set, and sends the ref back unchanged; a lock the transaction already
+  // held is never released (row_prebuilt_t::try_unlock).
+  LockMode new_lock = 5;
 }
 
 // Images holds the sort image of every index of one row, by index id.
@@ -165,6 +171,85 @@ enum LockMode {
   LOCK_EXCLUSIVE = 2;
 }
 
+// ThrLockType is mysqld's thr_lock_type (include/thr_lock.h), one name per
+// value. vdb.so fills it with a switch over mysqld's named constants, so a
+// renumbering in a mysqld release cannot drift; vdb-mysql treats
+// THR_LOCK_UNSPECIFIED and any value it does not know as a locking read.
+enum ThrLockType {
+  THR_LOCK_UNSPECIFIED = 0;
+  TL_IGNORE = 1;
+  TL_UNLOCK = 2;
+  TL_READ_DEFAULT = 3;
+  TL_READ = 4;
+  TL_READ_WITH_SHARED_LOCKS = 5;
+  TL_READ_HIGH_PRIORITY = 6;
+  TL_READ_NO_INSERT = 7;
+  TL_WRITE_ALLOW_WRITE = 8;
+  TL_WRITE_CONCURRENT_DEFAULT = 9;
+  TL_WRITE_CONCURRENT_INSERT = 10;
+  TL_WRITE_DEFAULT = 11;
+  TL_WRITE_LOW_PRIORITY = 12;
+  TL_WRITE = 13;
+  TL_WRITE_ONLY = 14;
+}
+
+// SqlCommand is mysqld's enum_sql_command for the commands InnoDB's read
+// lock rule tests (ha_innobase::store_lock, start_stmt), filled 1:1 from
+// mysqld's named constants; every other command is SQL_COMMAND_OTHER.
+// UNSPECIFIED, OTHER and unknown values all mean "not a plain SELECT", which
+// in InnoDB's rule is a locking read, never a snapshot read.
+enum SqlCommand {
+  SQL_COMMAND_UNSPECIFIED = 0;
+  SQL_COMMAND_OTHER = 1;
+  SQL_COMMAND_SELECT = 2;
+  SQL_COMMAND_INSERT_SELECT = 3;
+  SQL_COMMAND_REPLACE_SELECT = 4;
+  SQL_COMMAND_UPDATE = 5;
+  SQL_COMMAND_CREATE_TABLE = 6;
+  SQL_COMMAND_CHECKSUM = 7;
+  SQL_COMMAND_LOCK_TABLES = 8;
+  SQL_COMMAND_FLUSH = 9;
+  SQL_COMMAND_DROP_TABLE = 10;
+  SQL_COMMAND_INSERT = 11;
+  SQL_COMMAND_DELETE = 12;
+  SQL_COMMAND_REPLACE = 13;
+  SQL_COMMAND_UPDATE_MULTI = 14;
+  SQL_COMMAND_DELETE_MULTI = 15;
+  SQL_COMMAND_HA_READ = 16;
+}
+
+// ExternalLock is the lock_type mysqld last passed to handler::external_lock
+// for the statement (F_RDLCK or F_WRLCK).
+enum ExternalLock {
+  EXTERNAL_LOCK_UNSPECIFIED = 0;
+  EXTERNAL_LOCK_READ = 1;
+  EXTERNAL_LOCK_WRITE = 2;
+}
+
+// ReadLockFacts are the raw values mysqld gave a table handle at the calls
+// where InnoDB decides a read's lock (doc: handoff #18). vdb.so records them
+// and decides nothing; vdb-mysql replays InnoDB's store_lock, external_lock
+// and start_stmt on them in call order, with the statement's isolation and
+// autocommit from StmtBegin, and picks the lock mode.
+message ReadLockFacts {
+  // The last store_lock call whose lock type was not TL_IGNORE (InnoDB
+  // leaves its state unchanged on TL_IGNORE): the type as mysqld passed it,
+  // before vdb.so's own rewrite for mysqld's table lock.
+  ThrLockType store_lock_type = 1;
+  SqlCommand store_sql_command = 2;
+  bool store_in_lock_tables = 3;
+  // external_lock of the statement, or of LOCK TABLES.
+  ExternalLock external_lock = 4;
+  // start_stmt, when mysqld called it after external_lock (statements under
+  // LOCK TABLES); its lock type and the command read again at that call.
+  bool start_stmt = 5;
+  ThrLockType start_stmt_type = 6;
+  SqlCommand start_stmt_sql_command = 7;
+  // init_table_handle_for_HANDLER was called after external_lock (HANDLER
+  // ... READ).
+  bool for_handler = 8;
+}
+
 message Setting {
   string name = 1;
   string value = 2;
@@ -176,7 +261,7 @@ message StmtBegin {
   bool control = 3;
   Isolation isolation = 4;
   bool autocommit = 5;
-  LockMode lock_intent = 6;
+  reserved 6;  // lock_intent, never set; read locks come from ReadLockFacts
   bool foreign_key_checks = 7;
   uint32 lock_wait_ms = 8;
   bool bka = 9;
@@ -210,8 +295,9 @@ message ScanOpen {
   bool backward = 6;
   repeated uint32 columns = 7;
   string pushed = 8;
-  LockMode lock = 9;
+  reserved 9;  // lock: replaced by facts
   uint32 max_rows = 10;
+  ReadLockFacts facts = 11;
 }
 
 enum CursorKind {
@@ -254,7 +340,8 @@ message ScanClose {
 // Unlock (vdb.so handler::unlock_row) releases the lock a locking read took
 // for one row it returned and the statement did not keep: at READ COMMITTED
 // mysqld calls it for every row that fails the WHERE. ref is the row's
-// reference from the batch. Reply: Empty.
+// reference from the batch; vdb.so sends it only when ref.new_lock is set,
+// and vdb-mysql releases only that mode's lock. Reply: Empty.
 message Unlock {
   uint32 table = 1;
   RowRef ref = 2;
@@ -266,7 +353,8 @@ message Lookup {
   uint32 index = 3;
   repeated Key keys = 4;
   repeated uint32 columns = 5;
-  LockMode lock = 6;
+  reserved 6;  // lock: replaced by facts
+  ReadLockFacts facts = 7;
 }
 
 message LookupReply {
@@ -280,8 +368,12 @@ message LookupNext {
   bytes continuation = 1;
 }
 
+// Count asks for an exact row count (handler::records). vdb-mysql declines
+// it when the read would lock: mysqld then counts through a locking scan,
+// as InnoDB's records() does.
 message Count {
   uint32 table = 1;
+  ReadLockFacts facts = 2;
 }
 
 message CountReply {

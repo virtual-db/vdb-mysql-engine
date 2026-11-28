@@ -30,6 +30,11 @@ func Goldens() []Golden {
 	key := &Key{Raw: []byte{1, 0, 0, 0}, Image: []byte{0x80, 0, 0, 1}}
 	rng := &Range{Low: key, LowIncl: true, LowParts: 1, High: &Key{Raw: []byte{9, 0, 0, 0}, Image: []byte{0x80, 0, 0, 9}}, HighParts: 1}
 	ref := &RowRef{Origin: Origin_ORIGIN_SOURCE, Pk: key, SourceKey: []byte{1, 0, 0, 0, '1'}, Whole: row("1", "ann")}
+	locked := &RowRef{Origin: Origin_ORIGIN_SOURCE, Pk: key, SourceKey: []byte{1, 0, 0, 0, '1'}, NewLock: LockMode_LOCK_SHARED}
+	facts := &ReadLockFacts{StoreLockType: ThrLockType_TL_READ, StoreSqlCommand: SqlCommand_SQL_COMMAND_INSERT_SELECT,
+		ExternalLock: ExternalLock_EXTERNAL_LOCK_READ}
+	wfacts := &ReadLockFacts{StoreLockType: ThrLockType_TL_WRITE, StoreSqlCommand: SqlCommand_SQL_COMMAND_UPDATE,
+		ExternalLock: ExternalLock_EXTERNAL_LOCK_WRITE}
 	batch := &Batch{Rows: []*Row{row("1", "ann"), {Values: []*Value{v("2"), {Null: true}}}}, Refs: []*RowRef{ref, ref}, End: true}
 	ims := &Images{Images: [][]byte{{0x80, 0, 0, 1}}}
 	def := &TableDefinition{Database: "shop", Name: "users", Definition: "CREATE TABLE `users` (`id` int NOT NULL, PRIMARY KEY (`id`))",
@@ -49,14 +54,14 @@ func Goldens() []Golden {
 		{"Release", OpRelease, &Savepoint{Name: "sp1"}},
 		{"Snapshot", OpSnapshot, &Empty{}},
 		{"ScanOpen", OpScanOpen, &ScanOpen{Table: 1, Version: 1, Index: 0, Kind: ScanKind_SCAN_PRIMARY_RANGE, Ranges: []*Range{rng},
-			Columns: []uint32{0, 1}, Pushed: "(`shop`.`users`.`id` > 0)", MaxRows: 4096}},
+			Columns: []uint32{0, 1}, Pushed: "(`shop`.`users`.`id` > 0)", MaxRows: 4096, Facts: facts}},
 		{"ScanNext", OpScanNext, &ScanNext{Scan: 1, Cursor: CursorKind_CURSOR_SOURCE, MaxRows: 4096}},
 		{"ScanClose", OpScanClose, &ScanClose{Scan: 1}},
-		{"Lookup", OpLookup, &Lookup{Table: 1, Version: 1, Keys: []*Key{key}, Columns: []uint32{0, 1}, Lock: LockMode_LOCK_EXCLUSIVE}},
+		{"Lookup", OpLookup, &Lookup{Table: 1, Version: 1, Keys: []*Key{key}, Columns: []uint32{0, 1}, Facts: wfacts}},
 		{"LookupNext", OpLookupNext, &LookupNext{Continuation: []byte{1, 2, 3}}},
-		{"Count", OpCount, &Count{Table: 1}},
+		{"Count", OpCount, &Count{Table: 1, Facts: facts}},
 		{"Stats", OpStats, &Stats{Table: 1, Index: 0, Range: rng}},
-		{"Unlock", OpUnlock, &Unlock{Table: 1, Ref: ref}},
+		{"Unlock", OpUnlock, &Unlock{Table: 1, Ref: locked}},
 		{"Insert", OpInsert, &Insert{Table: 1, Row: row("4", "dan"), Images: ims}},
 		{"InsertBatch", OpInsertBatch, &InsertBatch{Table: 1, Rows: []*Row{row("4", "dan")}, Images: []*Images{ims}}},
 		{"Update", OpUpdate, &Update{Table: 1, Old: ref, Row: row("1", "anna"), Images: ims}},
@@ -89,7 +94,7 @@ func Goldens() []Golden {
 		{"EmptyReply", OpStmtEnd.Reply(), &Empty{}},
 		{"ScanOpenReply", OpScanOpen.Reply(), &ScanOpenReply{Scan: 1, Source: batch, Delta: &Batch{End: true}}},
 		{"ScanNextReply", OpScanNext.Reply(), &ScanNextReply{Batch: batch}},
-		{"LookupReply", OpLookup.Reply(), &LookupReply{Batch: &Batch{Rows: []*Row{row("1", "ann")}, Refs: []*RowRef{ref}, KeyIdx: []uint32{0}, End: true}}},
+		{"LookupReply", OpLookup.Reply(), &LookupReply{Batch: &Batch{Rows: []*Row{row("1", "ann")}, Refs: []*RowRef{locked}, KeyIdx: []uint32{0}, End: true}}},
 		{"CountReply", OpCount.Reply(), &CountReply{Count: 1000}},
 		{"DeleteAllReply", OpDeleteAll.Reply(), &DeleteAllReply{Deleted: 20000}},
 		{"StatsReply", OpStats.Reply(), &StatsReply{Records: 1000, MeanRecLength: 64, MrrLengthPerRec: 72,

@@ -143,8 +143,12 @@ func Span(t core.TableID, idx core.IndexID, r core.ImageRange) core.Resource {
 }
 
 // Isolation is a session's isolation level and what it means on the core.
+// Autocommit says the statement runs outside a multi-statement transaction:
+// autocommit on and no BEGIN (mysqld's OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN
+// both clear), as StmtBegin.autocommit carries it.
 type Isolation struct {
-	Level protocol.Isolation
+	Level      protocol.Isolation
+	Autocommit bool
 }
 
 // Scope is the snapshot scope: one pair per statement at READ COMMITTED and

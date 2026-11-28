@@ -331,6 +331,242 @@ func (LockMode) EnumDescriptor() ([]byte, []int) {
 	return file_vdb_proto_rawDescGZIP(), []int{5}
 }
 
+// ThrLockType is mysqld's thr_lock_type (include/thr_lock.h), one name per
+// value. vdb.so fills it with a switch over mysqld's named constants, so a
+// renumbering in a mysqld release cannot drift; vdb-mysql treats
+// THR_LOCK_UNSPECIFIED and any value it does not know as a locking read.
+type ThrLockType int32
+
+const (
+	ThrLockType_THR_LOCK_UNSPECIFIED        ThrLockType = 0
+	ThrLockType_TL_IGNORE                   ThrLockType = 1
+	ThrLockType_TL_UNLOCK                   ThrLockType = 2
+	ThrLockType_TL_READ_DEFAULT             ThrLockType = 3
+	ThrLockType_TL_READ                     ThrLockType = 4
+	ThrLockType_TL_READ_WITH_SHARED_LOCKS   ThrLockType = 5
+	ThrLockType_TL_READ_HIGH_PRIORITY       ThrLockType = 6
+	ThrLockType_TL_READ_NO_INSERT           ThrLockType = 7
+	ThrLockType_TL_WRITE_ALLOW_WRITE        ThrLockType = 8
+	ThrLockType_TL_WRITE_CONCURRENT_DEFAULT ThrLockType = 9
+	ThrLockType_TL_WRITE_CONCURRENT_INSERT  ThrLockType = 10
+	ThrLockType_TL_WRITE_DEFAULT            ThrLockType = 11
+	ThrLockType_TL_WRITE_LOW_PRIORITY       ThrLockType = 12
+	ThrLockType_TL_WRITE                    ThrLockType = 13
+	ThrLockType_TL_WRITE_ONLY               ThrLockType = 14
+)
+
+// Enum value maps for ThrLockType.
+var (
+	ThrLockType_name = map[int32]string{
+		0:  "THR_LOCK_UNSPECIFIED",
+		1:  "TL_IGNORE",
+		2:  "TL_UNLOCK",
+		3:  "TL_READ_DEFAULT",
+		4:  "TL_READ",
+		5:  "TL_READ_WITH_SHARED_LOCKS",
+		6:  "TL_READ_HIGH_PRIORITY",
+		7:  "TL_READ_NO_INSERT",
+		8:  "TL_WRITE_ALLOW_WRITE",
+		9:  "TL_WRITE_CONCURRENT_DEFAULT",
+		10: "TL_WRITE_CONCURRENT_INSERT",
+		11: "TL_WRITE_DEFAULT",
+		12: "TL_WRITE_LOW_PRIORITY",
+		13: "TL_WRITE",
+		14: "TL_WRITE_ONLY",
+	}
+	ThrLockType_value = map[string]int32{
+		"THR_LOCK_UNSPECIFIED":        0,
+		"TL_IGNORE":                   1,
+		"TL_UNLOCK":                   2,
+		"TL_READ_DEFAULT":             3,
+		"TL_READ":                     4,
+		"TL_READ_WITH_SHARED_LOCKS":   5,
+		"TL_READ_HIGH_PRIORITY":       6,
+		"TL_READ_NO_INSERT":           7,
+		"TL_WRITE_ALLOW_WRITE":        8,
+		"TL_WRITE_CONCURRENT_DEFAULT": 9,
+		"TL_WRITE_CONCURRENT_INSERT":  10,
+		"TL_WRITE_DEFAULT":            11,
+		"TL_WRITE_LOW_PRIORITY":       12,
+		"TL_WRITE":                    13,
+		"TL_WRITE_ONLY":               14,
+	}
+)
+
+func (x ThrLockType) Enum() *ThrLockType {
+	p := new(ThrLockType)
+	*p = x
+	return p
+}
+
+func (x ThrLockType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ThrLockType) Descriptor() protoreflect.EnumDescriptor {
+	return file_vdb_proto_enumTypes[6].Descriptor()
+}
+
+func (ThrLockType) Type() protoreflect.EnumType {
+	return &file_vdb_proto_enumTypes[6]
+}
+
+func (x ThrLockType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ThrLockType.Descriptor instead.
+func (ThrLockType) EnumDescriptor() ([]byte, []int) {
+	return file_vdb_proto_rawDescGZIP(), []int{6}
+}
+
+// SqlCommand is mysqld's enum_sql_command for the commands InnoDB's read
+// lock rule tests (ha_innobase::store_lock, start_stmt), filled 1:1 from
+// mysqld's named constants; every other command is SQL_COMMAND_OTHER.
+// UNSPECIFIED, OTHER and unknown values all mean "not a plain SELECT", which
+// in InnoDB's rule is a locking read, never a snapshot read.
+type SqlCommand int32
+
+const (
+	SqlCommand_SQL_COMMAND_UNSPECIFIED    SqlCommand = 0
+	SqlCommand_SQL_COMMAND_OTHER          SqlCommand = 1
+	SqlCommand_SQL_COMMAND_SELECT         SqlCommand = 2
+	SqlCommand_SQL_COMMAND_INSERT_SELECT  SqlCommand = 3
+	SqlCommand_SQL_COMMAND_REPLACE_SELECT SqlCommand = 4
+	SqlCommand_SQL_COMMAND_UPDATE         SqlCommand = 5
+	SqlCommand_SQL_COMMAND_CREATE_TABLE   SqlCommand = 6
+	SqlCommand_SQL_COMMAND_CHECKSUM       SqlCommand = 7
+	SqlCommand_SQL_COMMAND_LOCK_TABLES    SqlCommand = 8
+	SqlCommand_SQL_COMMAND_FLUSH          SqlCommand = 9
+	SqlCommand_SQL_COMMAND_DROP_TABLE     SqlCommand = 10
+	SqlCommand_SQL_COMMAND_INSERT         SqlCommand = 11
+	SqlCommand_SQL_COMMAND_DELETE         SqlCommand = 12
+	SqlCommand_SQL_COMMAND_REPLACE        SqlCommand = 13
+	SqlCommand_SQL_COMMAND_UPDATE_MULTI   SqlCommand = 14
+	SqlCommand_SQL_COMMAND_DELETE_MULTI   SqlCommand = 15
+	SqlCommand_SQL_COMMAND_HA_READ        SqlCommand = 16
+)
+
+// Enum value maps for SqlCommand.
+var (
+	SqlCommand_name = map[int32]string{
+		0:  "SQL_COMMAND_UNSPECIFIED",
+		1:  "SQL_COMMAND_OTHER",
+		2:  "SQL_COMMAND_SELECT",
+		3:  "SQL_COMMAND_INSERT_SELECT",
+		4:  "SQL_COMMAND_REPLACE_SELECT",
+		5:  "SQL_COMMAND_UPDATE",
+		6:  "SQL_COMMAND_CREATE_TABLE",
+		7:  "SQL_COMMAND_CHECKSUM",
+		8:  "SQL_COMMAND_LOCK_TABLES",
+		9:  "SQL_COMMAND_FLUSH",
+		10: "SQL_COMMAND_DROP_TABLE",
+		11: "SQL_COMMAND_INSERT",
+		12: "SQL_COMMAND_DELETE",
+		13: "SQL_COMMAND_REPLACE",
+		14: "SQL_COMMAND_UPDATE_MULTI",
+		15: "SQL_COMMAND_DELETE_MULTI",
+		16: "SQL_COMMAND_HA_READ",
+	}
+	SqlCommand_value = map[string]int32{
+		"SQL_COMMAND_UNSPECIFIED":    0,
+		"SQL_COMMAND_OTHER":          1,
+		"SQL_COMMAND_SELECT":         2,
+		"SQL_COMMAND_INSERT_SELECT":  3,
+		"SQL_COMMAND_REPLACE_SELECT": 4,
+		"SQL_COMMAND_UPDATE":         5,
+		"SQL_COMMAND_CREATE_TABLE":   6,
+		"SQL_COMMAND_CHECKSUM":       7,
+		"SQL_COMMAND_LOCK_TABLES":    8,
+		"SQL_COMMAND_FLUSH":          9,
+		"SQL_COMMAND_DROP_TABLE":     10,
+		"SQL_COMMAND_INSERT":         11,
+		"SQL_COMMAND_DELETE":         12,
+		"SQL_COMMAND_REPLACE":        13,
+		"SQL_COMMAND_UPDATE_MULTI":   14,
+		"SQL_COMMAND_DELETE_MULTI":   15,
+		"SQL_COMMAND_HA_READ":        16,
+	}
+)
+
+func (x SqlCommand) Enum() *SqlCommand {
+	p := new(SqlCommand)
+	*p = x
+	return p
+}
+
+func (x SqlCommand) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SqlCommand) Descriptor() protoreflect.EnumDescriptor {
+	return file_vdb_proto_enumTypes[7].Descriptor()
+}
+
+func (SqlCommand) Type() protoreflect.EnumType {
+	return &file_vdb_proto_enumTypes[7]
+}
+
+func (x SqlCommand) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SqlCommand.Descriptor instead.
+func (SqlCommand) EnumDescriptor() ([]byte, []int) {
+	return file_vdb_proto_rawDescGZIP(), []int{7}
+}
+
+// ExternalLock is the lock_type mysqld last passed to handler::external_lock
+// for the statement (F_RDLCK or F_WRLCK).
+type ExternalLock int32
+
+const (
+	ExternalLock_EXTERNAL_LOCK_UNSPECIFIED ExternalLock = 0
+	ExternalLock_EXTERNAL_LOCK_READ        ExternalLock = 1
+	ExternalLock_EXTERNAL_LOCK_WRITE       ExternalLock = 2
+)
+
+// Enum value maps for ExternalLock.
+var (
+	ExternalLock_name = map[int32]string{
+		0: "EXTERNAL_LOCK_UNSPECIFIED",
+		1: "EXTERNAL_LOCK_READ",
+		2: "EXTERNAL_LOCK_WRITE",
+	}
+	ExternalLock_value = map[string]int32{
+		"EXTERNAL_LOCK_UNSPECIFIED": 0,
+		"EXTERNAL_LOCK_READ":        1,
+		"EXTERNAL_LOCK_WRITE":       2,
+	}
+)
+
+func (x ExternalLock) Enum() *ExternalLock {
+	p := new(ExternalLock)
+	*p = x
+	return p
+}
+
+func (x ExternalLock) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ExternalLock) Descriptor() protoreflect.EnumDescriptor {
+	return file_vdb_proto_enumTypes[8].Descriptor()
+}
+
+func (ExternalLock) Type() protoreflect.EnumType {
+	return &file_vdb_proto_enumTypes[8]
+}
+
+func (x ExternalLock) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ExternalLock.Descriptor instead.
+func (ExternalLock) EnumDescriptor() ([]byte, []int) {
+	return file_vdb_proto_rawDescGZIP(), []int{8}
+}
+
 type ScanKind int32
 
 const (
@@ -367,11 +603,11 @@ func (x ScanKind) String() string {
 }
 
 func (ScanKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_vdb_proto_enumTypes[6].Descriptor()
+	return file_vdb_proto_enumTypes[9].Descriptor()
 }
 
 func (ScanKind) Type() protoreflect.EnumType {
-	return &file_vdb_proto_enumTypes[6]
+	return &file_vdb_proto_enumTypes[9]
 }
 
 func (x ScanKind) Number() protoreflect.EnumNumber {
@@ -380,7 +616,7 @@ func (x ScanKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ScanKind.Descriptor instead.
 func (ScanKind) EnumDescriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{6}
+	return file_vdb_proto_rawDescGZIP(), []int{9}
 }
 
 type CursorKind int32
@@ -416,11 +652,11 @@ func (x CursorKind) String() string {
 }
 
 func (CursorKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_vdb_proto_enumTypes[7].Descriptor()
+	return file_vdb_proto_enumTypes[10].Descriptor()
 }
 
 func (CursorKind) Type() protoreflect.EnumType {
-	return &file_vdb_proto_enumTypes[7]
+	return &file_vdb_proto_enumTypes[10]
 }
 
 func (x CursorKind) Number() protoreflect.EnumNumber {
@@ -429,7 +665,7 @@ func (x CursorKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CursorKind.Descriptor instead.
 func (CursorKind) EnumDescriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{7}
+	return file_vdb_proto_rawDescGZIP(), []int{10}
 }
 
 type CatalogKind int32
@@ -465,11 +701,11 @@ func (x CatalogKind) String() string {
 }
 
 func (CatalogKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_vdb_proto_enumTypes[8].Descriptor()
+	return file_vdb_proto_enumTypes[11].Descriptor()
 }
 
 func (CatalogKind) Type() protoreflect.EnumType {
-	return &file_vdb_proto_enumTypes[8]
+	return &file_vdb_proto_enumTypes[11]
 }
 
 func (x CatalogKind) Number() protoreflect.EnumNumber {
@@ -478,7 +714,7 @@ func (x CatalogKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CatalogKind.Descriptor instead.
 func (CatalogKind) EnumDescriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{8}
+	return file_vdb_proto_rawDescGZIP(), []int{11}
 }
 
 type AlterKind int32
@@ -541,11 +777,11 @@ func (x AlterKind) String() string {
 }
 
 func (AlterKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_vdb_proto_enumTypes[9].Descriptor()
+	return file_vdb_proto_enumTypes[12].Descriptor()
 }
 
 func (AlterKind) Type() protoreflect.EnumType {
-	return &file_vdb_proto_enumTypes[9]
+	return &file_vdb_proto_enumTypes[12]
 }
 
 func (x AlterKind) Number() protoreflect.EnumNumber {
@@ -554,7 +790,7 @@ func (x AlterKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AlterKind.Descriptor instead.
 func (AlterKind) EnumDescriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{9}
+	return file_vdb_proto_rawDescGZIP(), []int{12}
 }
 
 type AlterVerdict int32
@@ -590,11 +826,11 @@ func (x AlterVerdict) String() string {
 }
 
 func (AlterVerdict) Descriptor() protoreflect.EnumDescriptor {
-	return file_vdb_proto_enumTypes[10].Descriptor()
+	return file_vdb_proto_enumTypes[13].Descriptor()
 }
 
 func (AlterVerdict) Type() protoreflect.EnumType {
-	return &file_vdb_proto_enumTypes[10]
+	return &file_vdb_proto_enumTypes[13]
 }
 
 func (x AlterVerdict) Number() protoreflect.EnumNumber {
@@ -603,7 +839,7 @@ func (x AlterVerdict) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AlterVerdict.Descriptor instead.
 func (AlterVerdict) EnumDescriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{10}
+	return file_vdb_proto_rawDescGZIP(), []int{13}
 }
 
 type AuthResult int32
@@ -639,11 +875,11 @@ func (x AuthResult) String() string {
 }
 
 func (AuthResult) Descriptor() protoreflect.EnumDescriptor {
-	return file_vdb_proto_enumTypes[11].Descriptor()
+	return file_vdb_proto_enumTypes[14].Descriptor()
 }
 
 func (AuthResult) Type() protoreflect.EnumType {
-	return &file_vdb_proto_enumTypes[11]
+	return &file_vdb_proto_enumTypes[14]
 }
 
 func (x AuthResult) Number() protoreflect.EnumNumber {
@@ -652,7 +888,7 @@ func (x AuthResult) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AuthResult.Descriptor instead.
 func (AuthResult) EnumDescriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{11}
+	return file_vdb_proto_rawDescGZIP(), []int{14}
 }
 
 type EventKind int32
@@ -688,11 +924,11 @@ func (x EventKind) String() string {
 }
 
 func (EventKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_vdb_proto_enumTypes[12].Descriptor()
+	return file_vdb_proto_enumTypes[15].Descriptor()
 }
 
 func (EventKind) Type() protoreflect.EnumType {
-	return &file_vdb_proto_enumTypes[12]
+	return &file_vdb_proto_enumTypes[15]
 }
 
 func (x EventKind) Number() protoreflect.EnumNumber {
@@ -701,7 +937,7 @@ func (x EventKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EventKind.Descriptor instead.
 func (EventKind) EnumDescriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{12}
+	return file_vdb_proto_rawDescGZIP(), []int{15}
 }
 
 // Value is NULL or bytes in MySQL's text form.
@@ -943,11 +1179,17 @@ func (x *Range) GetHighParts() uint32 {
 // RowRef identifies a row for update_row and delete_row. For updates and
 // deletes, whole carries the old row's every column.
 type RowRef struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Origin        Origin                 `protobuf:"varint,1,opt,name=origin,proto3,enum=vdb.Origin" json:"origin,omitempty"`
-	Pk            *Key                   `protobuf:"bytes,2,opt,name=pk,proto3" json:"pk,omitempty"`
-	SourceKey     []byte                 `protobuf:"bytes,3,opt,name=source_key,json=sourceKey,proto3" json:"source_key,omitempty"`
-	Whole         *Row                   `protobuf:"bytes,4,opt,name=whole,proto3" json:"whole,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Origin    Origin                 `protobuf:"varint,1,opt,name=origin,proto3,enum=vdb.Origin" json:"origin,omitempty"`
+	Pk        *Key                   `protobuf:"bytes,2,opt,name=pk,proto3" json:"pk,omitempty"`
+	SourceKey []byte                 `protobuf:"bytes,3,opt,name=source_key,json=sourceKey,proto3" json:"source_key,omitempty"`
+	Whole     *Row                   `protobuf:"bytes,4,opt,name=whole,proto3" json:"whole,omitempty"`
+	// new_lock is set by vdb-mysql on a row a locking read returned when that
+	// read newly created the row's record lock, in this mode (InnoDB's
+	// new_rec_lock). vdb.so sends Unlock for the current row only when it is
+	// set, and sends the ref back unchanged; a lock the transaction already
+	// held is never released (row_prebuilt_t::try_unlock).
+	NewLock       LockMode `protobuf:"varint,5,opt,name=new_lock,json=newLock,proto3,enum=vdb.LockMode" json:"new_lock,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1008,6 +1250,13 @@ func (x *RowRef) GetWhole() *Row {
 		return x.Whole
 	}
 	return nil
+}
+
+func (x *RowRef) GetNewLock() LockMode {
+	if x != nil {
+		return x.NewLock
+	}
+	return LockMode_LOCK_NONE
 }
 
 // Images holds the sort image of every index of one row, by index id.
@@ -1689,6 +1938,119 @@ func (x *TableOpenReply) GetIdentity() uint32 {
 	return 0
 }
 
+// ReadLockFacts are the raw values mysqld gave a table handle at the calls
+// where InnoDB decides a read's lock (doc: handoff #18). vdb.so records them
+// and decides nothing; vdb-mysql replays InnoDB's store_lock, external_lock
+// and start_stmt on them in call order, with the statement's isolation and
+// autocommit from StmtBegin, and picks the lock mode.
+type ReadLockFacts struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The last store_lock call whose lock type was not TL_IGNORE (InnoDB
+	// leaves its state unchanged on TL_IGNORE): the type as mysqld passed it,
+	// before vdb.so's own rewrite for mysqld's table lock.
+	StoreLockType     ThrLockType `protobuf:"varint,1,opt,name=store_lock_type,json=storeLockType,proto3,enum=vdb.ThrLockType" json:"store_lock_type,omitempty"`
+	StoreSqlCommand   SqlCommand  `protobuf:"varint,2,opt,name=store_sql_command,json=storeSqlCommand,proto3,enum=vdb.SqlCommand" json:"store_sql_command,omitempty"`
+	StoreInLockTables bool        `protobuf:"varint,3,opt,name=store_in_lock_tables,json=storeInLockTables,proto3" json:"store_in_lock_tables,omitempty"`
+	// external_lock of the statement, or of LOCK TABLES.
+	ExternalLock ExternalLock `protobuf:"varint,4,opt,name=external_lock,json=externalLock,proto3,enum=vdb.ExternalLock" json:"external_lock,omitempty"`
+	// start_stmt, when mysqld called it after external_lock (statements under
+	// LOCK TABLES); its lock type and the command read again at that call.
+	StartStmt           bool        `protobuf:"varint,5,opt,name=start_stmt,json=startStmt,proto3" json:"start_stmt,omitempty"`
+	StartStmtType       ThrLockType `protobuf:"varint,6,opt,name=start_stmt_type,json=startStmtType,proto3,enum=vdb.ThrLockType" json:"start_stmt_type,omitempty"`
+	StartStmtSqlCommand SqlCommand  `protobuf:"varint,7,opt,name=start_stmt_sql_command,json=startStmtSqlCommand,proto3,enum=vdb.SqlCommand" json:"start_stmt_sql_command,omitempty"`
+	// init_table_handle_for_HANDLER was called after external_lock (HANDLER
+	// ... READ).
+	ForHandler    bool `protobuf:"varint,8,opt,name=for_handler,json=forHandler,proto3" json:"for_handler,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadLockFacts) Reset() {
+	*x = ReadLockFacts{}
+	mi := &file_vdb_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadLockFacts) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadLockFacts) ProtoMessage() {}
+
+func (x *ReadLockFacts) ProtoReflect() protoreflect.Message {
+	mi := &file_vdb_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadLockFacts.ProtoReflect.Descriptor instead.
+func (*ReadLockFacts) Descriptor() ([]byte, []int) {
+	return file_vdb_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ReadLockFacts) GetStoreLockType() ThrLockType {
+	if x != nil {
+		return x.StoreLockType
+	}
+	return ThrLockType_THR_LOCK_UNSPECIFIED
+}
+
+func (x *ReadLockFacts) GetStoreSqlCommand() SqlCommand {
+	if x != nil {
+		return x.StoreSqlCommand
+	}
+	return SqlCommand_SQL_COMMAND_UNSPECIFIED
+}
+
+func (x *ReadLockFacts) GetStoreInLockTables() bool {
+	if x != nil {
+		return x.StoreInLockTables
+	}
+	return false
+}
+
+func (x *ReadLockFacts) GetExternalLock() ExternalLock {
+	if x != nil {
+		return x.ExternalLock
+	}
+	return ExternalLock_EXTERNAL_LOCK_UNSPECIFIED
+}
+
+func (x *ReadLockFacts) GetStartStmt() bool {
+	if x != nil {
+		return x.StartStmt
+	}
+	return false
+}
+
+func (x *ReadLockFacts) GetStartStmtType() ThrLockType {
+	if x != nil {
+		return x.StartStmtType
+	}
+	return ThrLockType_THR_LOCK_UNSPECIFIED
+}
+
+func (x *ReadLockFacts) GetStartStmtSqlCommand() SqlCommand {
+	if x != nil {
+		return x.StartStmtSqlCommand
+	}
+	return SqlCommand_SQL_COMMAND_UNSPECIFIED
+}
+
+func (x *ReadLockFacts) GetForHandler() bool {
+	if x != nil {
+		return x.ForHandler
+	}
+	return false
+}
+
 type Setting struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -1699,7 +2061,7 @@ type Setting struct {
 
 func (x *Setting) Reset() {
 	*x = Setting{}
-	mi := &file_vdb_proto_msgTypes[16]
+	mi := &file_vdb_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1711,7 +2073,7 @@ func (x *Setting) String() string {
 func (*Setting) ProtoMessage() {}
 
 func (x *Setting) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[16]
+	mi := &file_vdb_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1724,7 +2086,7 @@ func (x *Setting) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Setting.ProtoReflect.Descriptor instead.
 func (*Setting) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{16}
+	return file_vdb_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Setting) GetName() string {
@@ -1748,7 +2110,6 @@ type StmtBegin struct {
 	Control          bool                   `protobuf:"varint,3,opt,name=control,proto3" json:"control,omitempty"`
 	Isolation        Isolation              `protobuf:"varint,4,opt,name=isolation,proto3,enum=vdb.Isolation" json:"isolation,omitempty"`
 	Autocommit       bool                   `protobuf:"varint,5,opt,name=autocommit,proto3" json:"autocommit,omitempty"`
-	LockIntent       LockMode               `protobuf:"varint,6,opt,name=lock_intent,json=lockIntent,proto3,enum=vdb.LockMode" json:"lock_intent,omitempty"`
 	ForeignKeyChecks bool                   `protobuf:"varint,7,opt,name=foreign_key_checks,json=foreignKeyChecks,proto3" json:"foreign_key_checks,omitempty"`
 	LockWaitMs       uint32                 `protobuf:"varint,8,opt,name=lock_wait_ms,json=lockWaitMs,proto3" json:"lock_wait_ms,omitempty"`
 	Bka              bool                   `protobuf:"varint,9,opt,name=bka,proto3" json:"bka,omitempty"`
@@ -1761,7 +2122,7 @@ type StmtBegin struct {
 
 func (x *StmtBegin) Reset() {
 	*x = StmtBegin{}
-	mi := &file_vdb_proto_msgTypes[17]
+	mi := &file_vdb_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1773,7 +2134,7 @@ func (x *StmtBegin) String() string {
 func (*StmtBegin) ProtoMessage() {}
 
 func (x *StmtBegin) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[17]
+	mi := &file_vdb_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1786,7 +2147,7 @@ func (x *StmtBegin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StmtBegin.ProtoReflect.Descriptor instead.
 func (*StmtBegin) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{17}
+	return file_vdb_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *StmtBegin) GetAccount() string {
@@ -1822,13 +2183,6 @@ func (x *StmtBegin) GetAutocommit() bool {
 		return x.Autocommit
 	}
 	return false
-}
-
-func (x *StmtBegin) GetLockIntent() LockMode {
-	if x != nil {
-		return x.LockIntent
-	}
-	return LockMode_LOCK_NONE
 }
 
 func (x *StmtBegin) GetForeignKeyChecks() bool {
@@ -1883,7 +2237,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_vdb_proto_msgTypes[18]
+	mi := &file_vdb_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1895,7 +2249,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[18]
+	mi := &file_vdb_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1908,7 +2262,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{18}
+	return file_vdb_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Empty) GetWarnings() []*Warning {
@@ -1927,7 +2281,7 @@ type Savepoint struct {
 
 func (x *Savepoint) Reset() {
 	*x = Savepoint{}
-	mi := &file_vdb_proto_msgTypes[19]
+	mi := &file_vdb_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1939,7 +2293,7 @@ func (x *Savepoint) String() string {
 func (*Savepoint) ProtoMessage() {}
 
 func (x *Savepoint) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[19]
+	mi := &file_vdb_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1952,7 +2306,7 @@ func (x *Savepoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Savepoint.ProtoReflect.Descriptor instead.
 func (*Savepoint) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{19}
+	return file_vdb_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Savepoint) GetName() string {
@@ -1972,15 +2326,15 @@ type ScanOpen struct {
 	Backward      bool                   `protobuf:"varint,6,opt,name=backward,proto3" json:"backward,omitempty"`
 	Columns       []uint32               `protobuf:"varint,7,rep,packed,name=columns,proto3" json:"columns,omitempty"`
 	Pushed        string                 `protobuf:"bytes,8,opt,name=pushed,proto3" json:"pushed,omitempty"`
-	Lock          LockMode               `protobuf:"varint,9,opt,name=lock,proto3,enum=vdb.LockMode" json:"lock,omitempty"`
 	MaxRows       uint32                 `protobuf:"varint,10,opt,name=max_rows,json=maxRows,proto3" json:"max_rows,omitempty"`
+	Facts         *ReadLockFacts         `protobuf:"bytes,11,opt,name=facts,proto3" json:"facts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ScanOpen) Reset() {
 	*x = ScanOpen{}
-	mi := &file_vdb_proto_msgTypes[20]
+	mi := &file_vdb_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1992,7 +2346,7 @@ func (x *ScanOpen) String() string {
 func (*ScanOpen) ProtoMessage() {}
 
 func (x *ScanOpen) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[20]
+	mi := &file_vdb_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2005,7 +2359,7 @@ func (x *ScanOpen) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanOpen.ProtoReflect.Descriptor instead.
 func (*ScanOpen) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{20}
+	return file_vdb_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ScanOpen) GetTable() uint32 {
@@ -2064,18 +2418,18 @@ func (x *ScanOpen) GetPushed() string {
 	return ""
 }
 
-func (x *ScanOpen) GetLock() LockMode {
-	if x != nil {
-		return x.Lock
-	}
-	return LockMode_LOCK_NONE
-}
-
 func (x *ScanOpen) GetMaxRows() uint32 {
 	if x != nil {
 		return x.MaxRows
 	}
 	return 0
+}
+
+func (x *ScanOpen) GetFacts() *ReadLockFacts {
+	if x != nil {
+		return x.Facts
+	}
+	return nil
 }
 
 type Batch struct {
@@ -2090,7 +2444,7 @@ type Batch struct {
 
 func (x *Batch) Reset() {
 	*x = Batch{}
-	mi := &file_vdb_proto_msgTypes[21]
+	mi := &file_vdb_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2102,7 +2456,7 @@ func (x *Batch) String() string {
 func (*Batch) ProtoMessage() {}
 
 func (x *Batch) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[21]
+	mi := &file_vdb_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2115,7 +2469,7 @@ func (x *Batch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Batch.ProtoReflect.Descriptor instead.
 func (*Batch) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{21}
+	return file_vdb_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Batch) GetRows() []*Row {
@@ -2160,7 +2514,7 @@ type ScanOpenReply struct {
 
 func (x *ScanOpenReply) Reset() {
 	*x = ScanOpenReply{}
-	mi := &file_vdb_proto_msgTypes[22]
+	mi := &file_vdb_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2172,7 +2526,7 @@ func (x *ScanOpenReply) String() string {
 func (*ScanOpenReply) ProtoMessage() {}
 
 func (x *ScanOpenReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[22]
+	mi := &file_vdb_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2185,7 +2539,7 @@ func (x *ScanOpenReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanOpenReply.ProtoReflect.Descriptor instead.
 func (*ScanOpenReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{22}
+	return file_vdb_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ScanOpenReply) GetScan() uint32 {
@@ -2241,7 +2595,7 @@ type ScanNext struct {
 
 func (x *ScanNext) Reset() {
 	*x = ScanNext{}
-	mi := &file_vdb_proto_msgTypes[23]
+	mi := &file_vdb_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2253,7 +2607,7 @@ func (x *ScanNext) String() string {
 func (*ScanNext) ProtoMessage() {}
 
 func (x *ScanNext) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[23]
+	mi := &file_vdb_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2266,7 +2620,7 @@ func (x *ScanNext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanNext.ProtoReflect.Descriptor instead.
 func (*ScanNext) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{23}
+	return file_vdb_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ScanNext) GetScan() uint32 {
@@ -2300,7 +2654,7 @@ type ScanNextReply struct {
 
 func (x *ScanNextReply) Reset() {
 	*x = ScanNextReply{}
-	mi := &file_vdb_proto_msgTypes[24]
+	mi := &file_vdb_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2312,7 +2666,7 @@ func (x *ScanNextReply) String() string {
 func (*ScanNextReply) ProtoMessage() {}
 
 func (x *ScanNextReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[24]
+	mi := &file_vdb_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2325,7 +2679,7 @@ func (x *ScanNextReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanNextReply.ProtoReflect.Descriptor instead.
 func (*ScanNextReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{24}
+	return file_vdb_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ScanNextReply) GetBatch() *Batch {
@@ -2351,7 +2705,7 @@ type ScanClose struct {
 
 func (x *ScanClose) Reset() {
 	*x = ScanClose{}
-	mi := &file_vdb_proto_msgTypes[25]
+	mi := &file_vdb_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2363,7 +2717,7 @@ func (x *ScanClose) String() string {
 func (*ScanClose) ProtoMessage() {}
 
 func (x *ScanClose) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[25]
+	mi := &file_vdb_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2376,7 +2730,7 @@ func (x *ScanClose) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanClose.ProtoReflect.Descriptor instead.
 func (*ScanClose) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{25}
+	return file_vdb_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ScanClose) GetScan() uint32 {
@@ -2389,7 +2743,8 @@ func (x *ScanClose) GetScan() uint32 {
 // Unlock (vdb.so handler::unlock_row) releases the lock a locking read took
 // for one row it returned and the statement did not keep: at READ COMMITTED
 // mysqld calls it for every row that fails the WHERE. ref is the row's
-// reference from the batch. Reply: Empty.
+// reference from the batch; vdb.so sends it only when ref.new_lock is set,
+// and vdb-mysql releases only that mode's lock. Reply: Empty.
 type Unlock struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Table         uint32                 `protobuf:"varint,1,opt,name=table,proto3" json:"table,omitempty"`
@@ -2400,7 +2755,7 @@ type Unlock struct {
 
 func (x *Unlock) Reset() {
 	*x = Unlock{}
-	mi := &file_vdb_proto_msgTypes[26]
+	mi := &file_vdb_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2412,7 +2767,7 @@ func (x *Unlock) String() string {
 func (*Unlock) ProtoMessage() {}
 
 func (x *Unlock) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[26]
+	mi := &file_vdb_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2425,7 +2780,7 @@ func (x *Unlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Unlock.ProtoReflect.Descriptor instead.
 func (*Unlock) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{26}
+	return file_vdb_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Unlock) GetTable() uint32 {
@@ -2449,14 +2804,14 @@ type Lookup struct {
 	Index         uint32                 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
 	Keys          []*Key                 `protobuf:"bytes,4,rep,name=keys,proto3" json:"keys,omitempty"`
 	Columns       []uint32               `protobuf:"varint,5,rep,packed,name=columns,proto3" json:"columns,omitempty"`
-	Lock          LockMode               `protobuf:"varint,6,opt,name=lock,proto3,enum=vdb.LockMode" json:"lock,omitempty"`
+	Facts         *ReadLockFacts         `protobuf:"bytes,7,opt,name=facts,proto3" json:"facts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Lookup) Reset() {
 	*x = Lookup{}
-	mi := &file_vdb_proto_msgTypes[27]
+	mi := &file_vdb_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2468,7 +2823,7 @@ func (x *Lookup) String() string {
 func (*Lookup) ProtoMessage() {}
 
 func (x *Lookup) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[27]
+	mi := &file_vdb_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2481,7 +2836,7 @@ func (x *Lookup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Lookup.ProtoReflect.Descriptor instead.
 func (*Lookup) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{27}
+	return file_vdb_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *Lookup) GetTable() uint32 {
@@ -2519,11 +2874,11 @@ func (x *Lookup) GetColumns() []uint32 {
 	return nil
 }
 
-func (x *Lookup) GetLock() LockMode {
+func (x *Lookup) GetFacts() *ReadLockFacts {
 	if x != nil {
-		return x.Lock
+		return x.Facts
 	}
-	return LockMode_LOCK_NONE
+	return nil
 }
 
 type LookupReply struct {
@@ -2538,7 +2893,7 @@ type LookupReply struct {
 
 func (x *LookupReply) Reset() {
 	*x = LookupReply{}
-	mi := &file_vdb_proto_msgTypes[28]
+	mi := &file_vdb_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2550,7 +2905,7 @@ func (x *LookupReply) String() string {
 func (*LookupReply) ProtoMessage() {}
 
 func (x *LookupReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[28]
+	mi := &file_vdb_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2563,7 +2918,7 @@ func (x *LookupReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupReply.ProtoReflect.Descriptor instead.
 func (*LookupReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{28}
+	return file_vdb_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *LookupReply) GetBatch() *Batch {
@@ -2603,7 +2958,7 @@ type LookupNext struct {
 
 func (x *LookupNext) Reset() {
 	*x = LookupNext{}
-	mi := &file_vdb_proto_msgTypes[29]
+	mi := &file_vdb_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2615,7 +2970,7 @@ func (x *LookupNext) String() string {
 func (*LookupNext) ProtoMessage() {}
 
 func (x *LookupNext) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[29]
+	mi := &file_vdb_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2628,7 +2983,7 @@ func (x *LookupNext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LookupNext.ProtoReflect.Descriptor instead.
 func (*LookupNext) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{29}
+	return file_vdb_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *LookupNext) GetContinuation() []byte {
@@ -2638,16 +2993,20 @@ func (x *LookupNext) GetContinuation() []byte {
 	return nil
 }
 
+// Count asks for an exact row count (handler::records). vdb-mysql declines
+// it when the read would lock: mysqld then counts through a locking scan,
+// as InnoDB's records() does.
 type Count struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Table         uint32                 `protobuf:"varint,1,opt,name=table,proto3" json:"table,omitempty"`
+	Facts         *ReadLockFacts         `protobuf:"bytes,2,opt,name=facts,proto3" json:"facts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Count) Reset() {
 	*x = Count{}
-	mi := &file_vdb_proto_msgTypes[30]
+	mi := &file_vdb_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2659,7 +3018,7 @@ func (x *Count) String() string {
 func (*Count) ProtoMessage() {}
 
 func (x *Count) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[30]
+	mi := &file_vdb_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2672,7 +3031,7 @@ func (x *Count) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Count.ProtoReflect.Descriptor instead.
 func (*Count) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{30}
+	return file_vdb_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Count) GetTable() uint32 {
@@ -2680,6 +3039,13 @@ func (x *Count) GetTable() uint32 {
 		return x.Table
 	}
 	return 0
+}
+
+func (x *Count) GetFacts() *ReadLockFacts {
+	if x != nil {
+		return x.Facts
+	}
+	return nil
 }
 
 type CountReply struct {
@@ -2692,7 +3058,7 @@ type CountReply struct {
 
 func (x *CountReply) Reset() {
 	*x = CountReply{}
-	mi := &file_vdb_proto_msgTypes[31]
+	mi := &file_vdb_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2704,7 +3070,7 @@ func (x *CountReply) String() string {
 func (*CountReply) ProtoMessage() {}
 
 func (x *CountReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[31]
+	mi := &file_vdb_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2717,7 +3083,7 @@ func (x *CountReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CountReply.ProtoReflect.Descriptor instead.
 func (*CountReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{31}
+	return file_vdb_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CountReply) GetCount() uint64 {
@@ -2751,7 +3117,7 @@ type Stats struct {
 
 func (x *Stats) Reset() {
 	*x = Stats{}
-	mi := &file_vdb_proto_msgTypes[32]
+	mi := &file_vdb_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2763,7 +3129,7 @@ func (x *Stats) String() string {
 func (*Stats) ProtoMessage() {}
 
 func (x *Stats) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[32]
+	mi := &file_vdb_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2776,7 +3142,7 @@ func (x *Stats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Stats.ProtoReflect.Descriptor instead.
 func (*Stats) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{32}
+	return file_vdb_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *Stats) GetTable() uint32 {
@@ -2817,7 +3183,7 @@ type IndexStats struct {
 
 func (x *IndexStats) Reset() {
 	*x = IndexStats{}
-	mi := &file_vdb_proto_msgTypes[33]
+	mi := &file_vdb_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2829,7 +3195,7 @@ func (x *IndexStats) String() string {
 func (*IndexStats) ProtoMessage() {}
 
 func (x *IndexStats) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[33]
+	mi := &file_vdb_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2842,7 +3208,7 @@ func (x *IndexStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexStats.ProtoReflect.Descriptor instead.
 func (*IndexStats) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{33}
+	return file_vdb_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *IndexStats) GetIndex() uint32 {
@@ -2875,7 +3241,7 @@ type StatsReply struct {
 
 func (x *StatsReply) Reset() {
 	*x = StatsReply{}
-	mi := &file_vdb_proto_msgTypes[34]
+	mi := &file_vdb_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2887,7 +3253,7 @@ func (x *StatsReply) String() string {
 func (*StatsReply) ProtoMessage() {}
 
 func (x *StatsReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[34]
+	mi := &file_vdb_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2900,7 +3266,7 @@ func (x *StatsReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatsReply.ProtoReflect.Descriptor instead.
 func (*StatsReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{34}
+	return file_vdb_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *StatsReply) GetRecords() uint64 {
@@ -2970,7 +3336,7 @@ type Insert struct {
 
 func (x *Insert) Reset() {
 	*x = Insert{}
-	mi := &file_vdb_proto_msgTypes[35]
+	mi := &file_vdb_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2982,7 +3348,7 @@ func (x *Insert) String() string {
 func (*Insert) ProtoMessage() {}
 
 func (x *Insert) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[35]
+	mi := &file_vdb_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2995,7 +3361,7 @@ func (x *Insert) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Insert.ProtoReflect.Descriptor instead.
 func (*Insert) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{35}
+	return file_vdb_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Insert) GetTable() uint32 {
@@ -3030,7 +3396,7 @@ type InsertBatch struct {
 
 func (x *InsertBatch) Reset() {
 	*x = InsertBatch{}
-	mi := &file_vdb_proto_msgTypes[36]
+	mi := &file_vdb_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3042,7 +3408,7 @@ func (x *InsertBatch) String() string {
 func (*InsertBatch) ProtoMessage() {}
 
 func (x *InsertBatch) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[36]
+	mi := &file_vdb_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3055,7 +3421,7 @@ func (x *InsertBatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InsertBatch.ProtoReflect.Descriptor instead.
 func (*InsertBatch) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{36}
+	return file_vdb_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *InsertBatch) GetTable() uint32 {
@@ -3089,7 +3455,7 @@ type WriteResult struct {
 
 func (x *WriteResult) Reset() {
 	*x = WriteResult{}
-	mi := &file_vdb_proto_msgTypes[37]
+	mi := &file_vdb_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3101,7 +3467,7 @@ func (x *WriteResult) String() string {
 func (*WriteResult) ProtoMessage() {}
 
 func (x *WriteResult) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[37]
+	mi := &file_vdb_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3114,7 +3480,7 @@ func (x *WriteResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteResult.ProtoReflect.Descriptor instead.
 func (*WriteResult) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{37}
+	return file_vdb_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *WriteResult) GetOk() bool {
@@ -3141,7 +3507,7 @@ type InsertReply struct {
 
 func (x *InsertReply) Reset() {
 	*x = InsertReply{}
-	mi := &file_vdb_proto_msgTypes[38]
+	mi := &file_vdb_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3153,7 +3519,7 @@ func (x *InsertReply) String() string {
 func (*InsertReply) ProtoMessage() {}
 
 func (x *InsertReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[38]
+	mi := &file_vdb_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3166,7 +3532,7 @@ func (x *InsertReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InsertReply.ProtoReflect.Descriptor instead.
 func (*InsertReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{38}
+	return file_vdb_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *InsertReply) GetResults() []*WriteResult {
@@ -3195,7 +3561,7 @@ type Update struct {
 
 func (x *Update) Reset() {
 	*x = Update{}
-	mi := &file_vdb_proto_msgTypes[39]
+	mi := &file_vdb_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3207,7 +3573,7 @@ func (x *Update) String() string {
 func (*Update) ProtoMessage() {}
 
 func (x *Update) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[39]
+	mi := &file_vdb_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3220,7 +3586,7 @@ func (x *Update) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Update.ProtoReflect.Descriptor instead.
 func (*Update) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{39}
+	return file_vdb_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *Update) GetTable() uint32 {
@@ -3261,7 +3627,7 @@ type Delete struct {
 
 func (x *Delete) Reset() {
 	*x = Delete{}
-	mi := &file_vdb_proto_msgTypes[40]
+	mi := &file_vdb_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3273,7 +3639,7 @@ func (x *Delete) String() string {
 func (*Delete) ProtoMessage() {}
 
 func (x *Delete) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[40]
+	mi := &file_vdb_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3286,7 +3652,7 @@ func (x *Delete) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Delete.ProtoReflect.Descriptor instead.
 func (*Delete) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{40}
+	return file_vdb_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *Delete) GetTable() uint32 {
@@ -3313,7 +3679,7 @@ type AutoIncrement struct {
 
 func (x *AutoIncrement) Reset() {
 	*x = AutoIncrement{}
-	mi := &file_vdb_proto_msgTypes[41]
+	mi := &file_vdb_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3325,7 +3691,7 @@ func (x *AutoIncrement) String() string {
 func (*AutoIncrement) ProtoMessage() {}
 
 func (x *AutoIncrement) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[41]
+	mi := &file_vdb_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3338,7 +3704,7 @@ func (x *AutoIncrement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutoIncrement.ProtoReflect.Descriptor instead.
 func (*AutoIncrement) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{41}
+	return file_vdb_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *AutoIncrement) GetTable() uint32 {
@@ -3365,7 +3731,7 @@ type AutoIncrementReply struct {
 
 func (x *AutoIncrementReply) Reset() {
 	*x = AutoIncrementReply{}
-	mi := &file_vdb_proto_msgTypes[42]
+	mi := &file_vdb_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3377,7 +3743,7 @@ func (x *AutoIncrementReply) String() string {
 func (*AutoIncrementReply) ProtoMessage() {}
 
 func (x *AutoIncrementReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[42]
+	mi := &file_vdb_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3390,7 +3756,7 @@ func (x *AutoIncrementReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutoIncrementReply.ProtoReflect.Descriptor instead.
 func (*AutoIncrementReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{42}
+	return file_vdb_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *AutoIncrementReply) GetFirst() uint64 {
@@ -3416,7 +3782,7 @@ type Truncate struct {
 
 func (x *Truncate) Reset() {
 	*x = Truncate{}
-	mi := &file_vdb_proto_msgTypes[43]
+	mi := &file_vdb_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3428,7 +3794,7 @@ func (x *Truncate) String() string {
 func (*Truncate) ProtoMessage() {}
 
 func (x *Truncate) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[43]
+	mi := &file_vdb_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3441,7 +3807,7 @@ func (x *Truncate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Truncate.ProtoReflect.Descriptor instead.
 func (*Truncate) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{43}
+	return file_vdb_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *Truncate) GetTable() uint32 {
@@ -3463,7 +3829,7 @@ type DeleteAll struct {
 
 func (x *DeleteAll) Reset() {
 	*x = DeleteAll{}
-	mi := &file_vdb_proto_msgTypes[44]
+	mi := &file_vdb_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3475,7 +3841,7 @@ func (x *DeleteAll) String() string {
 func (*DeleteAll) ProtoMessage() {}
 
 func (x *DeleteAll) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[44]
+	mi := &file_vdb_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3488,7 +3854,7 @@ func (x *DeleteAll) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAll.ProtoReflect.Descriptor instead.
 func (*DeleteAll) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{44}
+	return file_vdb_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DeleteAll) GetTable() uint32 {
@@ -3511,7 +3877,7 @@ type DeleteAllReply struct {
 
 func (x *DeleteAllReply) Reset() {
 	*x = DeleteAllReply{}
-	mi := &file_vdb_proto_msgTypes[45]
+	mi := &file_vdb_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3523,7 +3889,7 @@ func (x *DeleteAllReply) String() string {
 func (*DeleteAllReply) ProtoMessage() {}
 
 func (x *DeleteAllReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[45]
+	mi := &file_vdb_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3536,7 +3902,7 @@ func (x *DeleteAllReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAllReply.ProtoReflect.Descriptor instead.
 func (*DeleteAllReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{45}
+	return file_vdb_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *DeleteAllReply) GetDeleted() uint64 {
@@ -3572,7 +3938,7 @@ type ColumnDef struct {
 
 func (x *ColumnDef) Reset() {
 	*x = ColumnDef{}
-	mi := &file_vdb_proto_msgTypes[46]
+	mi := &file_vdb_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3584,7 +3950,7 @@ func (x *ColumnDef) String() string {
 func (*ColumnDef) ProtoMessage() {}
 
 func (x *ColumnDef) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[46]
+	mi := &file_vdb_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3597,7 +3963,7 @@ func (x *ColumnDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnDef.ProtoReflect.Descriptor instead.
 func (*ColumnDef) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{46}
+	return file_vdb_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ColumnDef) GetName() string {
@@ -3692,7 +4058,7 @@ type IndexDef struct {
 
 func (x *IndexDef) Reset() {
 	*x = IndexDef{}
-	mi := &file_vdb_proto_msgTypes[47]
+	mi := &file_vdb_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3704,7 +4070,7 @@ func (x *IndexDef) String() string {
 func (*IndexDef) ProtoMessage() {}
 
 func (x *IndexDef) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[47]
+	mi := &file_vdb_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3717,7 +4083,7 @@ func (x *IndexDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexDef.ProtoReflect.Descriptor instead.
 func (*IndexDef) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{47}
+	return file_vdb_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *IndexDef) GetName() string {
@@ -3785,7 +4151,7 @@ type ForeignKeyDef struct {
 
 func (x *ForeignKeyDef) Reset() {
 	*x = ForeignKeyDef{}
-	mi := &file_vdb_proto_msgTypes[48]
+	mi := &file_vdb_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3797,7 +4163,7 @@ func (x *ForeignKeyDef) String() string {
 func (*ForeignKeyDef) ProtoMessage() {}
 
 func (x *ForeignKeyDef) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[48]
+	mi := &file_vdb_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3810,7 +4176,7 @@ func (x *ForeignKeyDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForeignKeyDef.ProtoReflect.Descriptor instead.
 func (*ForeignKeyDef) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{48}
+	return file_vdb_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ForeignKeyDef) GetName() string {
@@ -3884,7 +4250,7 @@ type TableDefinition struct {
 
 func (x *TableDefinition) Reset() {
 	*x = TableDefinition{}
-	mi := &file_vdb_proto_msgTypes[49]
+	mi := &file_vdb_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3896,7 +4262,7 @@ func (x *TableDefinition) String() string {
 func (*TableDefinition) ProtoMessage() {}
 
 func (x *TableDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[49]
+	mi := &file_vdb_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3909,7 +4275,7 @@ func (x *TableDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableDefinition.ProtoReflect.Descriptor instead.
 func (*TableDefinition) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{49}
+	return file_vdb_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *TableDefinition) GetDatabase() string {
@@ -3974,7 +4340,7 @@ type Catalog struct {
 
 func (x *Catalog) Reset() {
 	*x = Catalog{}
-	mi := &file_vdb_proto_msgTypes[50]
+	mi := &file_vdb_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3986,7 +4352,7 @@ func (x *Catalog) String() string {
 func (*Catalog) ProtoMessage() {}
 
 func (x *Catalog) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[50]
+	mi := &file_vdb_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3999,7 +4365,7 @@ func (x *Catalog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Catalog.ProtoReflect.Descriptor instead.
 func (*Catalog) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{50}
+	return file_vdb_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *Catalog) GetKind() CatalogKind {
@@ -4048,7 +4414,7 @@ type CatalogReply struct {
 
 func (x *CatalogReply) Reset() {
 	*x = CatalogReply{}
-	mi := &file_vdb_proto_msgTypes[51]
+	mi := &file_vdb_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4060,7 +4426,7 @@ func (x *CatalogReply) String() string {
 func (*CatalogReply) ProtoMessage() {}
 
 func (x *CatalogReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[51]
+	mi := &file_vdb_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4073,7 +4439,7 @@ func (x *CatalogReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CatalogReply.ProtoReflect.Descriptor instead.
 func (*CatalogReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{51}
+	return file_vdb_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CatalogReply) GetTable() uint32 {
@@ -4111,7 +4477,7 @@ type Alter struct {
 
 func (x *Alter) Reset() {
 	*x = Alter{}
-	mi := &file_vdb_proto_msgTypes[52]
+	mi := &file_vdb_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4123,7 +4489,7 @@ func (x *Alter) String() string {
 func (*Alter) ProtoMessage() {}
 
 func (x *Alter) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[52]
+	mi := &file_vdb_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4136,7 +4502,7 @@ func (x *Alter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Alter.ProtoReflect.Descriptor instead.
 func (*Alter) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{52}
+	return file_vdb_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *Alter) GetTable() uint32 {
@@ -4192,7 +4558,7 @@ type AlterReply struct {
 
 func (x *AlterReply) Reset() {
 	*x = AlterReply{}
-	mi := &file_vdb_proto_msgTypes[53]
+	mi := &file_vdb_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4204,7 +4570,7 @@ func (x *AlterReply) String() string {
 func (*AlterReply) ProtoMessage() {}
 
 func (x *AlterReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[53]
+	mi := &file_vdb_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4217,7 +4583,7 @@ func (x *AlterReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlterReply.ProtoReflect.Descriptor instead.
 func (*AlterReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{53}
+	return file_vdb_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *AlterReply) GetVerdict() AlterVerdict {
@@ -4250,7 +4616,7 @@ type AlterRows struct {
 
 func (x *AlterRows) Reset() {
 	*x = AlterRows{}
-	mi := &file_vdb_proto_msgTypes[54]
+	mi := &file_vdb_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4262,7 +4628,7 @@ func (x *AlterRows) String() string {
 func (*AlterRows) ProtoMessage() {}
 
 func (x *AlterRows) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[54]
+	mi := &file_vdb_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4275,7 +4641,7 @@ func (x *AlterRows) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlterRows.ProtoReflect.Descriptor instead.
 func (*AlterRows) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{54}
+	return file_vdb_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *AlterRows) GetTable() uint32 {
@@ -4296,7 +4662,7 @@ type AlterPut struct {
 
 func (x *AlterPut) Reset() {
 	*x = AlterPut{}
-	mi := &file_vdb_proto_msgTypes[55]
+	mi := &file_vdb_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4308,7 +4674,7 @@ func (x *AlterPut) String() string {
 func (*AlterPut) ProtoMessage() {}
 
 func (x *AlterPut) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[55]
+	mi := &file_vdb_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4321,7 +4687,7 @@ func (x *AlterPut) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AlterPut.ProtoReflect.Descriptor instead.
 func (*AlterPut) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{55}
+	return file_vdb_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *AlterPut) GetTable() uint32 {
@@ -4354,7 +4720,7 @@ type Kill struct {
 
 func (x *Kill) Reset() {
 	*x = Kill{}
-	mi := &file_vdb_proto_msgTypes[56]
+	mi := &file_vdb_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4366,7 +4732,7 @@ func (x *Kill) String() string {
 func (*Kill) ProtoMessage() {}
 
 func (x *Kill) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[56]
+	mi := &file_vdb_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4379,7 +4745,7 @@ func (x *Kill) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kill.ProtoReflect.Descriptor instead.
 func (*Kill) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{56}
+	return file_vdb_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *Kill) GetConnId() uint64 {
@@ -4402,7 +4768,7 @@ type AuthBegin struct {
 
 func (x *AuthBegin) Reset() {
 	*x = AuthBegin{}
-	mi := &file_vdb_proto_msgTypes[57]
+	mi := &file_vdb_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4414,7 +4780,7 @@ func (x *AuthBegin) String() string {
 func (*AuthBegin) ProtoMessage() {}
 
 func (x *AuthBegin) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[57]
+	mi := &file_vdb_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4427,7 +4793,7 @@ func (x *AuthBegin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthBegin.ProtoReflect.Descriptor instead.
 func (*AuthBegin) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{57}
+	return file_vdb_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *AuthBegin) GetUser() string {
@@ -4478,7 +4844,7 @@ type AuthBeginReply struct {
 
 func (x *AuthBeginReply) Reset() {
 	*x = AuthBeginReply{}
-	mi := &file_vdb_proto_msgTypes[58]
+	mi := &file_vdb_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4490,7 +4856,7 @@ func (x *AuthBeginReply) String() string {
 func (*AuthBeginReply) ProtoMessage() {}
 
 func (x *AuthBeginReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[58]
+	mi := &file_vdb_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4503,7 +4869,7 @@ func (x *AuthBeginReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthBeginReply.ProtoReflect.Descriptor instead.
 func (*AuthBeginReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{58}
+	return file_vdb_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *AuthBeginReply) GetScramble() []byte {
@@ -4550,7 +4916,7 @@ type AuthAnswer struct {
 
 func (x *AuthAnswer) Reset() {
 	*x = AuthAnswer{}
-	mi := &file_vdb_proto_msgTypes[59]
+	mi := &file_vdb_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4562,7 +4928,7 @@ func (x *AuthAnswer) String() string {
 func (*AuthAnswer) ProtoMessage() {}
 
 func (x *AuthAnswer) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[59]
+	mi := &file_vdb_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4575,7 +4941,7 @@ func (x *AuthAnswer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthAnswer.ProtoReflect.Descriptor instead.
 func (*AuthAnswer) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{59}
+	return file_vdb_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *AuthAnswer) GetAnswer() []byte {
@@ -4600,7 +4966,7 @@ type AuthReply struct {
 
 func (x *AuthReply) Reset() {
 	*x = AuthReply{}
-	mi := &file_vdb_proto_msgTypes[60]
+	mi := &file_vdb_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4612,7 +4978,7 @@ func (x *AuthReply) String() string {
 func (*AuthReply) ProtoMessage() {}
 
 func (x *AuthReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[60]
+	mi := &file_vdb_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4625,7 +4991,7 @@ func (x *AuthReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthReply.ProtoReflect.Descriptor instead.
 func (*AuthReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{60}
+	return file_vdb_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *AuthReply) GetResult() AuthResult {
@@ -4686,7 +5052,7 @@ type AuthPass struct {
 
 func (x *AuthPass) Reset() {
 	*x = AuthPass{}
-	mi := &file_vdb_proto_msgTypes[61]
+	mi := &file_vdb_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4698,7 +5064,7 @@ func (x *AuthPass) String() string {
 func (*AuthPass) ProtoMessage() {}
 
 func (x *AuthPass) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[61]
+	mi := &file_vdb_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4711,7 +5077,7 @@ func (x *AuthPass) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthPass.ProtoReflect.Descriptor instead.
 func (*AuthPass) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{61}
+	return file_vdb_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *AuthPass) GetPassword() []byte {
@@ -4731,7 +5097,7 @@ type Rewrite struct {
 
 func (x *Rewrite) Reset() {
 	*x = Rewrite{}
-	mi := &file_vdb_proto_msgTypes[62]
+	mi := &file_vdb_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4743,7 +5109,7 @@ func (x *Rewrite) String() string {
 func (*Rewrite) ProtoMessage() {}
 
 func (x *Rewrite) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[62]
+	mi := &file_vdb_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4756,7 +5122,7 @@ func (x *Rewrite) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Rewrite.ProtoReflect.Descriptor instead.
 func (*Rewrite) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{62}
+	return file_vdb_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *Rewrite) GetConnId() uint64 {
@@ -4783,7 +5149,7 @@ type ByteRange struct {
 
 func (x *ByteRange) Reset() {
 	*x = ByteRange{}
-	mi := &file_vdb_proto_msgTypes[63]
+	mi := &file_vdb_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4795,7 +5161,7 @@ func (x *ByteRange) String() string {
 func (*ByteRange) ProtoMessage() {}
 
 func (x *ByteRange) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[63]
+	mi := &file_vdb_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4808,7 +5174,7 @@ func (x *ByteRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ByteRange.ProtoReflect.Descriptor instead.
 func (*ByteRange) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{63}
+	return file_vdb_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ByteRange) GetStart() uint32 {
@@ -4835,7 +5201,7 @@ type RewriteReply struct {
 
 func (x *RewriteReply) Reset() {
 	*x = RewriteReply{}
-	mi := &file_vdb_proto_msgTypes[64]
+	mi := &file_vdb_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4847,7 +5213,7 @@ func (x *RewriteReply) String() string {
 func (*RewriteReply) ProtoMessage() {}
 
 func (x *RewriteReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[64]
+	mi := &file_vdb_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4860,7 +5226,7 @@ func (x *RewriteReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RewriteReply.ProtoReflect.Descriptor instead.
 func (*RewriteReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{64}
+	return file_vdb_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *RewriteReply) GetUnchanged() bool {
@@ -4892,7 +5258,7 @@ type DdlCaptured struct {
 
 func (x *DdlCaptured) Reset() {
 	*x = DdlCaptured{}
-	mi := &file_vdb_proto_msgTypes[65]
+	mi := &file_vdb_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4904,7 +5270,7 @@ func (x *DdlCaptured) String() string {
 func (*DdlCaptured) ProtoMessage() {}
 
 func (x *DdlCaptured) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[65]
+	mi := &file_vdb_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4917,7 +5283,7 @@ func (x *DdlCaptured) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DdlCaptured.ProtoReflect.Descriptor instead.
 func (*DdlCaptured) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{65}
+	return file_vdb_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *DdlCaptured) GetConnId() uint64 {
@@ -4988,7 +5354,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_vdb_proto_msgTypes[66]
+	mi := &file_vdb_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5000,7 +5366,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[66]
+	mi := &file_vdb_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5013,7 +5379,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{66}
+	return file_vdb_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *Event) GetKind() EventKind {
@@ -5104,7 +5470,7 @@ type QueryReceived struct {
 
 func (x *QueryReceived) Reset() {
 	*x = QueryReceived{}
-	mi := &file_vdb_proto_msgTypes[67]
+	mi := &file_vdb_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5116,7 +5482,7 @@ func (x *QueryReceived) String() string {
 func (*QueryReceived) ProtoMessage() {}
 
 func (x *QueryReceived) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[67]
+	mi := &file_vdb_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5129,7 +5495,7 @@ func (x *QueryReceived) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryReceived.ProtoReflect.Descriptor instead.
 func (*QueryReceived) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{67}
+	return file_vdb_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *QueryReceived) GetConnId() uint64 {
@@ -5162,7 +5528,7 @@ type QueryReceivedReply struct {
 
 func (x *QueryReceivedReply) Reset() {
 	*x = QueryReceivedReply{}
-	mi := &file_vdb_proto_msgTypes[68]
+	mi := &file_vdb_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5174,7 +5540,7 @@ func (x *QueryReceivedReply) String() string {
 func (*QueryReceivedReply) ProtoMessage() {}
 
 func (x *QueryReceivedReply) ProtoReflect() protoreflect.Message {
-	mi := &file_vdb_proto_msgTypes[68]
+	mi := &file_vdb_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5187,7 +5553,7 @@ func (x *QueryReceivedReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryReceivedReply.ProtoReflect.Descriptor instead.
 func (*QueryReceivedReply) Descriptor() ([]byte, []int) {
-	return file_vdb_proto_rawDescGZIP(), []int{68}
+	return file_vdb_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *QueryReceivedReply) GetStatement() string {
@@ -5218,13 +5584,14 @@ const file_vdb_proto_rawDesc = "" +
 	"\x04high\x18\x06 \x01(\v2\b.vdb.KeyR\x04high\x12\x1b\n" +
 	"\thigh_incl\x18\a \x01(\bR\bhighIncl\x12\x1d\n" +
 	"\n" +
-	"high_parts\x18\b \x01(\rR\thighParts\"\x86\x01\n" +
+	"high_parts\x18\b \x01(\rR\thighParts\"\xb0\x01\n" +
 	"\x06RowRef\x12#\n" +
 	"\x06origin\x18\x01 \x01(\x0e2\v.vdb.OriginR\x06origin\x12\x18\n" +
 	"\x02pk\x18\x02 \x01(\v2\b.vdb.KeyR\x02pk\x12\x1d\n" +
 	"\n" +
 	"source_key\x18\x03 \x01(\fR\tsourceKey\x12\x1e\n" +
-	"\x05whole\x18\x04 \x01(\v2\b.vdb.RowR\x05whole\" \n" +
+	"\x05whole\x18\x04 \x01(\v2\b.vdb.RowR\x05whole\x12(\n" +
+	"\bnew_lock\x18\x05 \x01(\x0e2\r.vdb.LockModeR\anewLock\" \n" +
 	"\x06Images\x12\x16\n" +
 	"\x06images\x18\x01 \x03(\fR\x06images\"1\n" +
 	"\aWarning\x12\x12\n" +
@@ -5275,10 +5642,21 @@ const file_vdb_proto_rawDesc = "" +
 	"\aindexes\x18\x04 \x03(\v2\x0f.vdb.IndexFlagsR\aindexes\x12$\n" +
 	"\x05fetch\x18\x05 \x03(\x0e2\x0e.vdb.FetchModeR\x05fetch\x12!\n" +
 	"\fshadow_check\x18\x06 \x01(\bR\vshadowCheck\x12\x1a\n" +
-	"\bidentity\x18\a \x01(\rR\bidentity\"3\n" +
+	"\bidentity\x18\a \x01(\rR\bidentity\"\xaf\x03\n" +
+	"\rReadLockFacts\x128\n" +
+	"\x0fstore_lock_type\x18\x01 \x01(\x0e2\x10.vdb.ThrLockTypeR\rstoreLockType\x12;\n" +
+	"\x11store_sql_command\x18\x02 \x01(\x0e2\x0f.vdb.SqlCommandR\x0fstoreSqlCommand\x12/\n" +
+	"\x14store_in_lock_tables\x18\x03 \x01(\bR\x11storeInLockTables\x126\n" +
+	"\rexternal_lock\x18\x04 \x01(\x0e2\x11.vdb.ExternalLockR\fexternalLock\x12\x1d\n" +
+	"\n" +
+	"start_stmt\x18\x05 \x01(\bR\tstartStmt\x128\n" +
+	"\x0fstart_stmt_type\x18\x06 \x01(\x0e2\x10.vdb.ThrLockTypeR\rstartStmtType\x12D\n" +
+	"\x16start_stmt_sql_command\x18\a \x01(\x0e2\x0f.vdb.SqlCommandR\x13startStmtSqlCommand\x12\x1f\n" +
+	"\vfor_handler\x18\b \x01(\bR\n" +
+	"forHandler\"3\n" +
 	"\aSetting\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\x92\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xe8\x02\n" +
 	"\tStmtBegin\x12\x18\n" +
 	"\aaccount\x18\x01 \x01(\tR\aaccount\x12\x1a\n" +
 	"\bdatabase\x18\x02 \x01(\tR\bdatabase\x12\x18\n" +
@@ -5286,9 +5664,7 @@ const file_vdb_proto_rawDesc = "" +
 	"\tisolation\x18\x04 \x01(\x0e2\x0e.vdb.IsolationR\tisolation\x12\x1e\n" +
 	"\n" +
 	"autocommit\x18\x05 \x01(\bR\n" +
-	"autocommit\x12.\n" +
-	"\vlock_intent\x18\x06 \x01(\x0e2\r.vdb.LockModeR\n" +
-	"lockIntent\x12,\n" +
+	"autocommit\x12,\n" +
 	"\x12foreign_key_checks\x18\a \x01(\bR\x10foreignKeyChecks\x12 \n" +
 	"\flock_wait_ms\x18\b \x01(\rR\n" +
 	"lockWaitMs\x12\x10\n" +
@@ -5296,11 +5672,11 @@ const file_vdb_proto_rawDesc = "" +
 	"\x04eval\x18\n" +
 	" \x03(\v2\f.vdb.SettingR\x04eval\x12\x1b\n" +
 	"\tread_only\x18\v \x01(\bR\breadOnly\x12\x16\n" +
-	"\x06digest\x18\f \x01(\tR\x06digest\"1\n" +
+	"\x06digest\x18\f \x01(\tR\x06digestJ\x04\b\x06\x10\a\"1\n" +
 	"\x05Empty\x12(\n" +
 	"\bwarnings\x18\x01 \x03(\v2\f.vdb.WarningR\bwarnings\"\x1f\n" +
 	"\tSavepoint\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\xa3\x02\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xb0\x02\n" +
 	"\bScanOpen\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\rR\x05table\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\x04R\aversion\x12\x14\n" +
@@ -5310,10 +5686,11 @@ const file_vdb_proto_rawDesc = "" +
 	".vdb.RangeR\x06ranges\x12\x1a\n" +
 	"\bbackward\x18\x06 \x01(\bR\bbackward\x12\x18\n" +
 	"\acolumns\x18\a \x03(\rR\acolumns\x12\x16\n" +
-	"\x06pushed\x18\b \x01(\tR\x06pushed\x12!\n" +
-	"\x04lock\x18\t \x01(\x0e2\r.vdb.LockModeR\x04lock\x12\x19\n" +
+	"\x06pushed\x18\b \x01(\tR\x06pushed\x12\x19\n" +
 	"\bmax_rows\x18\n" +
-	" \x01(\rR\amaxRows\"q\n" +
+	" \x01(\rR\amaxRows\x12(\n" +
+	"\x05facts\x18\v \x01(\v2\x12.vdb.ReadLockFactsR\x05factsJ\x04\b\t\x10\n" +
+	"\"q\n" +
 	"\x05Batch\x12\x1c\n" +
 	"\x04rows\x18\x01 \x03(\v2\b.vdb.RowR\x04rows\x12\x1f\n" +
 	"\x04refs\x18\x02 \x03(\v2\v.vdb.RowRefR\x04refs\x12\x17\n" +
@@ -5341,14 +5718,14 @@ const file_vdb_proto_rawDesc = "" +
 	"\x04scan\x18\x01 \x01(\rR\x04scan\"=\n" +
 	"\x06Unlock\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\rR\x05table\x12\x1d\n" +
-	"\x03ref\x18\x02 \x01(\v2\v.vdb.RowRefR\x03ref\"\xa9\x01\n" +
+	"\x03ref\x18\x02 \x01(\v2\v.vdb.RowRefR\x03ref\"\xb6\x01\n" +
 	"\x06Lookup\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\rR\x05table\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\x04R\aversion\x12\x14\n" +
 	"\x05index\x18\x03 \x01(\rR\x05index\x12\x1c\n" +
 	"\x04keys\x18\x04 \x03(\v2\b.vdb.KeyR\x04keys\x12\x18\n" +
-	"\acolumns\x18\x05 \x03(\rR\acolumns\x12!\n" +
-	"\x04lock\x18\x06 \x01(\x0e2\r.vdb.LockModeR\x04lock\"\xa2\x01\n" +
+	"\acolumns\x18\x05 \x03(\rR\acolumns\x12(\n" +
+	"\x05facts\x18\a \x01(\v2\x12.vdb.ReadLockFactsR\x05factsJ\x04\b\x06\x10\a\"\xa2\x01\n" +
 	"\vLookupReply\x12 \n" +
 	"\x05batch\x18\x01 \x01(\v2\n" +
 	".vdb.BatchR\x05batch\x12\"\n" +
@@ -5357,9 +5734,10 @@ const file_vdb_proto_rawDesc = "" +
 	"\bwarnings\x18\x04 \x03(\v2\f.vdb.WarningR\bwarnings\"0\n" +
 	"\n" +
 	"LookupNext\x12\"\n" +
-	"\fcontinuation\x18\x01 \x01(\fR\fcontinuation\"\x1d\n" +
+	"\fcontinuation\x18\x01 \x01(\fR\fcontinuation\"G\n" +
 	"\x05Count\x12\x14\n" +
-	"\x05table\x18\x01 \x01(\rR\x05table\">\n" +
+	"\x05table\x18\x01 \x01(\rR\x05table\x12(\n" +
+	"\x05facts\x18\x02 \x01(\v2\x12.vdb.ReadLockFactsR\x05facts\">\n" +
 	"\n" +
 	"CountReply\x12\x14\n" +
 	"\x05count\x18\x01 \x01(\x04R\x05count\x12\x1a\n" +
@@ -5592,7 +5970,48 @@ const file_vdb_proto_rawDesc = "" +
 	"\bLockMode\x12\r\n" +
 	"\tLOCK_NONE\x10\x00\x12\x0f\n" +
 	"\vLOCK_SHARED\x10\x01\x12\x12\n" +
-	"\x0eLOCK_EXCLUSIVE\x10\x02*b\n" +
+	"\x0eLOCK_EXCLUSIVE\x10\x02*\xe5\x02\n" +
+	"\vThrLockType\x12\x18\n" +
+	"\x14THR_LOCK_UNSPECIFIED\x10\x00\x12\r\n" +
+	"\tTL_IGNORE\x10\x01\x12\r\n" +
+	"\tTL_UNLOCK\x10\x02\x12\x13\n" +
+	"\x0fTL_READ_DEFAULT\x10\x03\x12\v\n" +
+	"\aTL_READ\x10\x04\x12\x1d\n" +
+	"\x19TL_READ_WITH_SHARED_LOCKS\x10\x05\x12\x19\n" +
+	"\x15TL_READ_HIGH_PRIORITY\x10\x06\x12\x15\n" +
+	"\x11TL_READ_NO_INSERT\x10\a\x12\x18\n" +
+	"\x14TL_WRITE_ALLOW_WRITE\x10\b\x12\x1f\n" +
+	"\x1bTL_WRITE_CONCURRENT_DEFAULT\x10\t\x12\x1e\n" +
+	"\x1aTL_WRITE_CONCURRENT_INSERT\x10\n" +
+	"\x12\x14\n" +
+	"\x10TL_WRITE_DEFAULT\x10\v\x12\x19\n" +
+	"\x15TL_WRITE_LOW_PRIORITY\x10\f\x12\f\n" +
+	"\bTL_WRITE\x10\r\x12\x11\n" +
+	"\rTL_WRITE_ONLY\x10\x0e*\xd5\x03\n" +
+	"\n" +
+	"SqlCommand\x12\x1b\n" +
+	"\x17SQL_COMMAND_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11SQL_COMMAND_OTHER\x10\x01\x12\x16\n" +
+	"\x12SQL_COMMAND_SELECT\x10\x02\x12\x1d\n" +
+	"\x19SQL_COMMAND_INSERT_SELECT\x10\x03\x12\x1e\n" +
+	"\x1aSQL_COMMAND_REPLACE_SELECT\x10\x04\x12\x16\n" +
+	"\x12SQL_COMMAND_UPDATE\x10\x05\x12\x1c\n" +
+	"\x18SQL_COMMAND_CREATE_TABLE\x10\x06\x12\x18\n" +
+	"\x14SQL_COMMAND_CHECKSUM\x10\a\x12\x1b\n" +
+	"\x17SQL_COMMAND_LOCK_TABLES\x10\b\x12\x15\n" +
+	"\x11SQL_COMMAND_FLUSH\x10\t\x12\x1a\n" +
+	"\x16SQL_COMMAND_DROP_TABLE\x10\n" +
+	"\x12\x16\n" +
+	"\x12SQL_COMMAND_INSERT\x10\v\x12\x16\n" +
+	"\x12SQL_COMMAND_DELETE\x10\f\x12\x17\n" +
+	"\x13SQL_COMMAND_REPLACE\x10\r\x12\x1c\n" +
+	"\x18SQL_COMMAND_UPDATE_MULTI\x10\x0e\x12\x1c\n" +
+	"\x18SQL_COMMAND_DELETE_MULTI\x10\x0f\x12\x17\n" +
+	"\x13SQL_COMMAND_HA_READ\x10\x10*^\n" +
+	"\fExternalLock\x12\x1d\n" +
+	"\x19EXTERNAL_LOCK_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12EXTERNAL_LOCK_READ\x10\x01\x12\x17\n" +
+	"\x13EXTERNAL_LOCK_WRITE\x10\x02*b\n" +
 	"\bScanKind\x12\x12\n" +
 	"\x0eSCAN_UNORDERED\x10\x00\x12\x16\n" +
 	"\x12SCAN_PRIMARY_RANGE\x10\x01\x12\x14\n" +
@@ -5647,8 +6066,8 @@ func file_vdb_proto_rawDescGZIP() []byte {
 	return file_vdb_proto_rawDescData
 }
 
-var file_vdb_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_vdb_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
+var file_vdb_proto_enumTypes = make([]protoimpl.EnumInfo, 16)
+var file_vdb_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
 var file_vdb_proto_goTypes = []any{
 	(Origin)(0),                // 0: vdb.Origin
 	(ConnKind)(0),              // 1: vdb.ConnKind
@@ -5656,151 +6075,161 @@ var file_vdb_proto_goTypes = []any{
 	(FetchMode)(0),             // 3: vdb.FetchMode
 	(Isolation)(0),             // 4: vdb.Isolation
 	(LockMode)(0),              // 5: vdb.LockMode
-	(ScanKind)(0),              // 6: vdb.ScanKind
-	(CursorKind)(0),            // 7: vdb.CursorKind
-	(CatalogKind)(0),           // 8: vdb.CatalogKind
-	(AlterKind)(0),             // 9: vdb.AlterKind
-	(AlterVerdict)(0),          // 10: vdb.AlterVerdict
-	(AuthResult)(0),            // 11: vdb.AuthResult
-	(EventKind)(0),             // 12: vdb.EventKind
-	(*Value)(nil),              // 13: vdb.Value
-	(*Row)(nil),                // 14: vdb.Row
-	(*Key)(nil),                // 15: vdb.Key
-	(*Range)(nil),              // 16: vdb.Range
-	(*RowRef)(nil),             // 17: vdb.RowRef
-	(*Images)(nil),             // 18: vdb.Images
-	(*Warning)(nil),            // 19: vdb.Warning
-	(*Hello)(nil),              // 20: vdb.Hello
-	(*HelloReply)(nil),         // 21: vdb.HelloReply
-	(*Error)(nil),              // 22: vdb.Error
-	(*Waiting)(nil),            // 23: vdb.Waiting
-	(*ImagesNeeded)(nil),       // 24: vdb.ImagesNeeded
-	(*ImagesReply)(nil),        // 25: vdb.ImagesReply
-	(*TableOpen)(nil),          // 26: vdb.TableOpen
-	(*IndexFlags)(nil),         // 27: vdb.IndexFlags
-	(*TableOpenReply)(nil),     // 28: vdb.TableOpenReply
-	(*Setting)(nil),            // 29: vdb.Setting
-	(*StmtBegin)(nil),          // 30: vdb.StmtBegin
-	(*Empty)(nil),              // 31: vdb.Empty
-	(*Savepoint)(nil),          // 32: vdb.Savepoint
-	(*ScanOpen)(nil),           // 33: vdb.ScanOpen
-	(*Batch)(nil),              // 34: vdb.Batch
-	(*ScanOpenReply)(nil),      // 35: vdb.ScanOpenReply
-	(*ScanNext)(nil),           // 36: vdb.ScanNext
-	(*ScanNextReply)(nil),      // 37: vdb.ScanNextReply
-	(*ScanClose)(nil),          // 38: vdb.ScanClose
-	(*Unlock)(nil),             // 39: vdb.Unlock
-	(*Lookup)(nil),             // 40: vdb.Lookup
-	(*LookupReply)(nil),        // 41: vdb.LookupReply
-	(*LookupNext)(nil),         // 42: vdb.LookupNext
-	(*Count)(nil),              // 43: vdb.Count
-	(*CountReply)(nil),         // 44: vdb.CountReply
-	(*Stats)(nil),              // 45: vdb.Stats
-	(*IndexStats)(nil),         // 46: vdb.IndexStats
-	(*StatsReply)(nil),         // 47: vdb.StatsReply
-	(*Insert)(nil),             // 48: vdb.Insert
-	(*InsertBatch)(nil),        // 49: vdb.InsertBatch
-	(*WriteResult)(nil),        // 50: vdb.WriteResult
-	(*InsertReply)(nil),        // 51: vdb.InsertReply
-	(*Update)(nil),             // 52: vdb.Update
-	(*Delete)(nil),             // 53: vdb.Delete
-	(*AutoIncrement)(nil),      // 54: vdb.AutoIncrement
-	(*AutoIncrementReply)(nil), // 55: vdb.AutoIncrementReply
-	(*Truncate)(nil),           // 56: vdb.Truncate
-	(*DeleteAll)(nil),          // 57: vdb.DeleteAll
-	(*DeleteAllReply)(nil),     // 58: vdb.DeleteAllReply
-	(*ColumnDef)(nil),          // 59: vdb.ColumnDef
-	(*IndexDef)(nil),           // 60: vdb.IndexDef
-	(*ForeignKeyDef)(nil),      // 61: vdb.ForeignKeyDef
-	(*TableDefinition)(nil),    // 62: vdb.TableDefinition
-	(*Catalog)(nil),            // 63: vdb.Catalog
-	(*CatalogReply)(nil),       // 64: vdb.CatalogReply
-	(*Alter)(nil),              // 65: vdb.Alter
-	(*AlterReply)(nil),         // 66: vdb.AlterReply
-	(*AlterRows)(nil),          // 67: vdb.AlterRows
-	(*AlterPut)(nil),           // 68: vdb.AlterPut
-	(*Kill)(nil),               // 69: vdb.Kill
-	(*AuthBegin)(nil),          // 70: vdb.AuthBegin
-	(*AuthBeginReply)(nil),     // 71: vdb.AuthBeginReply
-	(*AuthAnswer)(nil),         // 72: vdb.AuthAnswer
-	(*AuthReply)(nil),          // 73: vdb.AuthReply
-	(*AuthPass)(nil),           // 74: vdb.AuthPass
-	(*Rewrite)(nil),            // 75: vdb.Rewrite
-	(*ByteRange)(nil),          // 76: vdb.ByteRange
-	(*RewriteReply)(nil),       // 77: vdb.RewriteReply
-	(*DdlCaptured)(nil),        // 78: vdb.DdlCaptured
-	(*Event)(nil),              // 79: vdb.Event
-	(*QueryReceived)(nil),      // 80: vdb.QueryReceived
-	(*QueryReceivedReply)(nil), // 81: vdb.QueryReceivedReply
+	(ThrLockType)(0),           // 6: vdb.ThrLockType
+	(SqlCommand)(0),            // 7: vdb.SqlCommand
+	(ExternalLock)(0),          // 8: vdb.ExternalLock
+	(ScanKind)(0),              // 9: vdb.ScanKind
+	(CursorKind)(0),            // 10: vdb.CursorKind
+	(CatalogKind)(0),           // 11: vdb.CatalogKind
+	(AlterKind)(0),             // 12: vdb.AlterKind
+	(AlterVerdict)(0),          // 13: vdb.AlterVerdict
+	(AuthResult)(0),            // 14: vdb.AuthResult
+	(EventKind)(0),             // 15: vdb.EventKind
+	(*Value)(nil),              // 16: vdb.Value
+	(*Row)(nil),                // 17: vdb.Row
+	(*Key)(nil),                // 18: vdb.Key
+	(*Range)(nil),              // 19: vdb.Range
+	(*RowRef)(nil),             // 20: vdb.RowRef
+	(*Images)(nil),             // 21: vdb.Images
+	(*Warning)(nil),            // 22: vdb.Warning
+	(*Hello)(nil),              // 23: vdb.Hello
+	(*HelloReply)(nil),         // 24: vdb.HelloReply
+	(*Error)(nil),              // 25: vdb.Error
+	(*Waiting)(nil),            // 26: vdb.Waiting
+	(*ImagesNeeded)(nil),       // 27: vdb.ImagesNeeded
+	(*ImagesReply)(nil),        // 28: vdb.ImagesReply
+	(*TableOpen)(nil),          // 29: vdb.TableOpen
+	(*IndexFlags)(nil),         // 30: vdb.IndexFlags
+	(*TableOpenReply)(nil),     // 31: vdb.TableOpenReply
+	(*ReadLockFacts)(nil),      // 32: vdb.ReadLockFacts
+	(*Setting)(nil),            // 33: vdb.Setting
+	(*StmtBegin)(nil),          // 34: vdb.StmtBegin
+	(*Empty)(nil),              // 35: vdb.Empty
+	(*Savepoint)(nil),          // 36: vdb.Savepoint
+	(*ScanOpen)(nil),           // 37: vdb.ScanOpen
+	(*Batch)(nil),              // 38: vdb.Batch
+	(*ScanOpenReply)(nil),      // 39: vdb.ScanOpenReply
+	(*ScanNext)(nil),           // 40: vdb.ScanNext
+	(*ScanNextReply)(nil),      // 41: vdb.ScanNextReply
+	(*ScanClose)(nil),          // 42: vdb.ScanClose
+	(*Unlock)(nil),             // 43: vdb.Unlock
+	(*Lookup)(nil),             // 44: vdb.Lookup
+	(*LookupReply)(nil),        // 45: vdb.LookupReply
+	(*LookupNext)(nil),         // 46: vdb.LookupNext
+	(*Count)(nil),              // 47: vdb.Count
+	(*CountReply)(nil),         // 48: vdb.CountReply
+	(*Stats)(nil),              // 49: vdb.Stats
+	(*IndexStats)(nil),         // 50: vdb.IndexStats
+	(*StatsReply)(nil),         // 51: vdb.StatsReply
+	(*Insert)(nil),             // 52: vdb.Insert
+	(*InsertBatch)(nil),        // 53: vdb.InsertBatch
+	(*WriteResult)(nil),        // 54: vdb.WriteResult
+	(*InsertReply)(nil),        // 55: vdb.InsertReply
+	(*Update)(nil),             // 56: vdb.Update
+	(*Delete)(nil),             // 57: vdb.Delete
+	(*AutoIncrement)(nil),      // 58: vdb.AutoIncrement
+	(*AutoIncrementReply)(nil), // 59: vdb.AutoIncrementReply
+	(*Truncate)(nil),           // 60: vdb.Truncate
+	(*DeleteAll)(nil),          // 61: vdb.DeleteAll
+	(*DeleteAllReply)(nil),     // 62: vdb.DeleteAllReply
+	(*ColumnDef)(nil),          // 63: vdb.ColumnDef
+	(*IndexDef)(nil),           // 64: vdb.IndexDef
+	(*ForeignKeyDef)(nil),      // 65: vdb.ForeignKeyDef
+	(*TableDefinition)(nil),    // 66: vdb.TableDefinition
+	(*Catalog)(nil),            // 67: vdb.Catalog
+	(*CatalogReply)(nil),       // 68: vdb.CatalogReply
+	(*Alter)(nil),              // 69: vdb.Alter
+	(*AlterReply)(nil),         // 70: vdb.AlterReply
+	(*AlterRows)(nil),          // 71: vdb.AlterRows
+	(*AlterPut)(nil),           // 72: vdb.AlterPut
+	(*Kill)(nil),               // 73: vdb.Kill
+	(*AuthBegin)(nil),          // 74: vdb.AuthBegin
+	(*AuthBeginReply)(nil),     // 75: vdb.AuthBeginReply
+	(*AuthAnswer)(nil),         // 76: vdb.AuthAnswer
+	(*AuthReply)(nil),          // 77: vdb.AuthReply
+	(*AuthPass)(nil),           // 78: vdb.AuthPass
+	(*Rewrite)(nil),            // 79: vdb.Rewrite
+	(*ByteRange)(nil),          // 80: vdb.ByteRange
+	(*RewriteReply)(nil),       // 81: vdb.RewriteReply
+	(*DdlCaptured)(nil),        // 82: vdb.DdlCaptured
+	(*Event)(nil),              // 83: vdb.Event
+	(*QueryReceived)(nil),      // 84: vdb.QueryReceived
+	(*QueryReceivedReply)(nil), // 85: vdb.QueryReceivedReply
 }
 var file_vdb_proto_depIdxs = []int32{
-	13, // 0: vdb.Row.values:type_name -> vdb.Value
-	15, // 1: vdb.Range.low:type_name -> vdb.Key
-	15, // 2: vdb.Range.high:type_name -> vdb.Key
+	16, // 0: vdb.Row.values:type_name -> vdb.Value
+	18, // 1: vdb.Range.low:type_name -> vdb.Key
+	18, // 2: vdb.Range.high:type_name -> vdb.Key
 	0,  // 3: vdb.RowRef.origin:type_name -> vdb.Origin
-	15, // 4: vdb.RowRef.pk:type_name -> vdb.Key
-	14, // 5: vdb.RowRef.whole:type_name -> vdb.Row
-	1,  // 6: vdb.Hello.kind:type_name -> vdb.ConnKind
-	14, // 7: vdb.ImagesNeeded.rows:type_name -> vdb.Row
-	18, // 8: vdb.ImagesReply.rows:type_name -> vdb.Images
-	22, // 9: vdb.ImagesReply.error:type_name -> vdb.Error
-	2,  // 10: vdb.TableOpenReply.kind:type_name -> vdb.TableKind
-	27, // 11: vdb.TableOpenReply.indexes:type_name -> vdb.IndexFlags
-	3,  // 12: vdb.TableOpenReply.fetch:type_name -> vdb.FetchMode
-	4,  // 13: vdb.StmtBegin.isolation:type_name -> vdb.Isolation
-	5,  // 14: vdb.StmtBegin.lock_intent:type_name -> vdb.LockMode
-	29, // 15: vdb.StmtBegin.eval:type_name -> vdb.Setting
-	19, // 16: vdb.Empty.warnings:type_name -> vdb.Warning
-	6,  // 17: vdb.ScanOpen.kind:type_name -> vdb.ScanKind
-	16, // 18: vdb.ScanOpen.ranges:type_name -> vdb.Range
-	5,  // 19: vdb.ScanOpen.lock:type_name -> vdb.LockMode
-	14, // 20: vdb.Batch.rows:type_name -> vdb.Row
-	17, // 21: vdb.Batch.refs:type_name -> vdb.RowRef
-	34, // 22: vdb.ScanOpenReply.merged:type_name -> vdb.Batch
-	34, // 23: vdb.ScanOpenReply.source:type_name -> vdb.Batch
-	34, // 24: vdb.ScanOpenReply.delta:type_name -> vdb.Batch
-	19, // 25: vdb.ScanOpenReply.warnings:type_name -> vdb.Warning
-	7,  // 26: vdb.ScanNext.cursor:type_name -> vdb.CursorKind
-	34, // 27: vdb.ScanNextReply.batch:type_name -> vdb.Batch
-	19, // 28: vdb.ScanNextReply.warnings:type_name -> vdb.Warning
-	17, // 29: vdb.Unlock.ref:type_name -> vdb.RowRef
-	15, // 30: vdb.Lookup.keys:type_name -> vdb.Key
-	5,  // 31: vdb.Lookup.lock:type_name -> vdb.LockMode
-	34, // 32: vdb.LookupReply.batch:type_name -> vdb.Batch
-	19, // 33: vdb.LookupReply.warnings:type_name -> vdb.Warning
-	16, // 34: vdb.Stats.range:type_name -> vdb.Range
-	46, // 35: vdb.StatsReply.indexes:type_name -> vdb.IndexStats
-	14, // 36: vdb.Insert.row:type_name -> vdb.Row
-	18, // 37: vdb.Insert.images:type_name -> vdb.Images
-	14, // 38: vdb.InsertBatch.rows:type_name -> vdb.Row
-	18, // 39: vdb.InsertBatch.images:type_name -> vdb.Images
-	22, // 40: vdb.WriteResult.error:type_name -> vdb.Error
-	50, // 41: vdb.InsertReply.results:type_name -> vdb.WriteResult
-	19, // 42: vdb.InsertReply.warnings:type_name -> vdb.Warning
-	17, // 43: vdb.Update.old:type_name -> vdb.RowRef
-	14, // 44: vdb.Update.row:type_name -> vdb.Row
-	18, // 45: vdb.Update.images:type_name -> vdb.Images
-	17, // 46: vdb.Delete.old:type_name -> vdb.RowRef
-	13, // 47: vdb.ColumnDef.default_value:type_name -> vdb.Value
-	59, // 48: vdb.TableDefinition.columns:type_name -> vdb.ColumnDef
-	60, // 49: vdb.TableDefinition.indexes:type_name -> vdb.IndexDef
-	61, // 50: vdb.TableDefinition.foreign_keys:type_name -> vdb.ForeignKeyDef
-	8,  // 51: vdb.Catalog.kind:type_name -> vdb.CatalogKind
-	62, // 52: vdb.Catalog.table:type_name -> vdb.TableDefinition
-	19, // 53: vdb.CatalogReply.warnings:type_name -> vdb.Warning
-	9,  // 54: vdb.Alter.kinds:type_name -> vdb.AlterKind
-	62, // 55: vdb.Alter.table_def:type_name -> vdb.TableDefinition
-	10, // 56: vdb.AlterReply.verdict:type_name -> vdb.AlterVerdict
-	14, // 57: vdb.AlterPut.rows:type_name -> vdb.Row
-	18, // 58: vdb.AlterPut.images:type_name -> vdb.Images
-	11, // 59: vdb.AuthReply.result:type_name -> vdb.AuthResult
-	76, // 60: vdb.RewriteReply.remove:type_name -> vdb.ByteRange
-	12, // 61: vdb.Event.kind:type_name -> vdb.EventKind
-	62, // [62:62] is the sub-list for method output_type
-	62, // [62:62] is the sub-list for method input_type
-	62, // [62:62] is the sub-list for extension type_name
-	62, // [62:62] is the sub-list for extension extendee
-	0,  // [0:62] is the sub-list for field type_name
+	18, // 4: vdb.RowRef.pk:type_name -> vdb.Key
+	17, // 5: vdb.RowRef.whole:type_name -> vdb.Row
+	5,  // 6: vdb.RowRef.new_lock:type_name -> vdb.LockMode
+	1,  // 7: vdb.Hello.kind:type_name -> vdb.ConnKind
+	17, // 8: vdb.ImagesNeeded.rows:type_name -> vdb.Row
+	21, // 9: vdb.ImagesReply.rows:type_name -> vdb.Images
+	25, // 10: vdb.ImagesReply.error:type_name -> vdb.Error
+	2,  // 11: vdb.TableOpenReply.kind:type_name -> vdb.TableKind
+	30, // 12: vdb.TableOpenReply.indexes:type_name -> vdb.IndexFlags
+	3,  // 13: vdb.TableOpenReply.fetch:type_name -> vdb.FetchMode
+	6,  // 14: vdb.ReadLockFacts.store_lock_type:type_name -> vdb.ThrLockType
+	7,  // 15: vdb.ReadLockFacts.store_sql_command:type_name -> vdb.SqlCommand
+	8,  // 16: vdb.ReadLockFacts.external_lock:type_name -> vdb.ExternalLock
+	6,  // 17: vdb.ReadLockFacts.start_stmt_type:type_name -> vdb.ThrLockType
+	7,  // 18: vdb.ReadLockFacts.start_stmt_sql_command:type_name -> vdb.SqlCommand
+	4,  // 19: vdb.StmtBegin.isolation:type_name -> vdb.Isolation
+	33, // 20: vdb.StmtBegin.eval:type_name -> vdb.Setting
+	22, // 21: vdb.Empty.warnings:type_name -> vdb.Warning
+	9,  // 22: vdb.ScanOpen.kind:type_name -> vdb.ScanKind
+	19, // 23: vdb.ScanOpen.ranges:type_name -> vdb.Range
+	32, // 24: vdb.ScanOpen.facts:type_name -> vdb.ReadLockFacts
+	17, // 25: vdb.Batch.rows:type_name -> vdb.Row
+	20, // 26: vdb.Batch.refs:type_name -> vdb.RowRef
+	38, // 27: vdb.ScanOpenReply.merged:type_name -> vdb.Batch
+	38, // 28: vdb.ScanOpenReply.source:type_name -> vdb.Batch
+	38, // 29: vdb.ScanOpenReply.delta:type_name -> vdb.Batch
+	22, // 30: vdb.ScanOpenReply.warnings:type_name -> vdb.Warning
+	10, // 31: vdb.ScanNext.cursor:type_name -> vdb.CursorKind
+	38, // 32: vdb.ScanNextReply.batch:type_name -> vdb.Batch
+	22, // 33: vdb.ScanNextReply.warnings:type_name -> vdb.Warning
+	20, // 34: vdb.Unlock.ref:type_name -> vdb.RowRef
+	18, // 35: vdb.Lookup.keys:type_name -> vdb.Key
+	32, // 36: vdb.Lookup.facts:type_name -> vdb.ReadLockFacts
+	38, // 37: vdb.LookupReply.batch:type_name -> vdb.Batch
+	22, // 38: vdb.LookupReply.warnings:type_name -> vdb.Warning
+	32, // 39: vdb.Count.facts:type_name -> vdb.ReadLockFacts
+	19, // 40: vdb.Stats.range:type_name -> vdb.Range
+	50, // 41: vdb.StatsReply.indexes:type_name -> vdb.IndexStats
+	17, // 42: vdb.Insert.row:type_name -> vdb.Row
+	21, // 43: vdb.Insert.images:type_name -> vdb.Images
+	17, // 44: vdb.InsertBatch.rows:type_name -> vdb.Row
+	21, // 45: vdb.InsertBatch.images:type_name -> vdb.Images
+	25, // 46: vdb.WriteResult.error:type_name -> vdb.Error
+	54, // 47: vdb.InsertReply.results:type_name -> vdb.WriteResult
+	22, // 48: vdb.InsertReply.warnings:type_name -> vdb.Warning
+	20, // 49: vdb.Update.old:type_name -> vdb.RowRef
+	17, // 50: vdb.Update.row:type_name -> vdb.Row
+	21, // 51: vdb.Update.images:type_name -> vdb.Images
+	20, // 52: vdb.Delete.old:type_name -> vdb.RowRef
+	16, // 53: vdb.ColumnDef.default_value:type_name -> vdb.Value
+	63, // 54: vdb.TableDefinition.columns:type_name -> vdb.ColumnDef
+	64, // 55: vdb.TableDefinition.indexes:type_name -> vdb.IndexDef
+	65, // 56: vdb.TableDefinition.foreign_keys:type_name -> vdb.ForeignKeyDef
+	11, // 57: vdb.Catalog.kind:type_name -> vdb.CatalogKind
+	66, // 58: vdb.Catalog.table:type_name -> vdb.TableDefinition
+	22, // 59: vdb.CatalogReply.warnings:type_name -> vdb.Warning
+	12, // 60: vdb.Alter.kinds:type_name -> vdb.AlterKind
+	66, // 61: vdb.Alter.table_def:type_name -> vdb.TableDefinition
+	13, // 62: vdb.AlterReply.verdict:type_name -> vdb.AlterVerdict
+	17, // 63: vdb.AlterPut.rows:type_name -> vdb.Row
+	21, // 64: vdb.AlterPut.images:type_name -> vdb.Images
+	14, // 65: vdb.AuthReply.result:type_name -> vdb.AuthResult
+	80, // 66: vdb.RewriteReply.remove:type_name -> vdb.ByteRange
+	15, // 67: vdb.Event.kind:type_name -> vdb.EventKind
+	68, // [68:68] is the sub-list for method output_type
+	68, // [68:68] is the sub-list for method input_type
+	68, // [68:68] is the sub-list for extension type_name
+	68, // [68:68] is the sub-list for extension extendee
+	0,  // [0:68] is the sub-list for field type_name
 }
 
 func init() { file_vdb_proto_init() }
@@ -5813,8 +6242,8 @@ func file_vdb_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vdb_proto_rawDesc), len(file_vdb_proto_rawDesc)),
-			NumEnums:      13,
-			NumMessages:   69,
+			NumEnums:      16,
+			NumMessages:   70,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
