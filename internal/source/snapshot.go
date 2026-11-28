@@ -224,11 +224,21 @@ func (s *snapshot) run(d *core.TableDef, sh shaped) ([][]core.Value, error) {
 }
 
 // fill turns result rows of a projection into requested rows and keys.
+// The rows' value headers share one allocation per call (the bytes stay the
+// driver copies'); each row is capped at its own length. Rows are valid for
+// their batch: anything that keeps one longer must copy it, or it keeps the
+// whole page's headers reachable.
 func fill(d *core.TableDef, p projection, raw [][]core.Value, skip int) core.SourceRows {
-	var out core.SourceRows
-	for _, r := range raw {
+	if len(raw) == 0 {
+		return core.SourceRows{}
+	}
+	n := len(p.reqAt)
+	out := core.SourceRows{Rows: make([]core.Row, 0, len(raw)), Keys: make([]core.SourceKey, 0, len(raw))}
+	slab := make([]core.Value, n*len(raw))
+	kv := make([]core.Value, len(p.keyAt))
+	for j, r := range raw {
 		r = r[skip:]
-		row := make(core.Row, len(p.reqAt))
+		row := core.Row(slab[j*n : (j+1)*n : (j+1)*n])
 		for i, at := range p.reqAt {
 			if at >= 0 && at < len(r) {
 				row[i] = r[at]
@@ -241,7 +251,6 @@ func fill(d *core.TableDef, p projection, raw [][]core.Value, skip int) core.Sou
 				row[i] = core.Value{Null: true}
 			}
 		}
-		kv := make([]core.Value, len(p.keyAt))
 		for i, at := range p.keyAt {
 			kv[i] = r[at]
 		}
@@ -436,11 +445,10 @@ func (c *pager) take(raw [][]core.Value, base, limit, skip int) ([][]core.Value,
 		}
 		c.after = append([]core.Value(nil), last...)
 	}
-	trimmed := make([][]core.Value, len(raw))
 	for i, r := range raw {
-		trimmed[i] = r[:base]
+		raw[i] = r[:base:base] // raw is this page's own slice
 	}
-	return trimmed, done
+	return raw, done
 }
 
 // Walk describes a scan for WalkPages.

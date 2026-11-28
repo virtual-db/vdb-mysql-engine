@@ -175,6 +175,12 @@ func (i Isolation) Gaps() bool {
 	return i.Level == protocol.Isolation_REPEATABLE_READ || i.Level == protocol.Isolation_SERIALIZABLE
 }
 
+// ReleasesUnmatched reports whether handler::unlock_row releases the lock of a
+// row a locking read returned and the WHERE rejected: at READ COMMITTED and
+// READ UNCOMMITTED only. At REPEATABLE READ and SERIALIZABLE InnoDB keeps it
+// until the transaction ends (plan 03, L3).
+func (i Isolation) ReleasesUnmatched() bool { return !i.Gaps() }
+
 // ReleaseOnStatementRollback reports whether a failed statement's locks go
 // with it: at READ COMMITTED and READ UNCOMMITTED, as InnoDB does.
 func (i Isolation) ReleaseOnStatementRollback() bool { return !i.Gaps() }

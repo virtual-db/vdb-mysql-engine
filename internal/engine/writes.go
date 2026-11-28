@@ -12,6 +12,7 @@ import (
 	"github.com/virtual-db/vdb-mysql-engine/internal/mysqldef"
 
 	core "github.com/virtual-db/vdb-core"
+	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/virtual-db/vdb-mysql-engine/internal/fk"
 	"github.com/virtual-db/vdb-mysql-engine/internal/innodb"
@@ -213,7 +214,7 @@ func covered(have []bool, cols []uint16) bool {
 // Unlock only for such rows. At REPEATABLE READ and SERIALIZABLE InnoDB keeps
 // the lock, and so does VDB, whatever the flag says.
 func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef, newLock protocol.LockMode) {
-	if c.iso.Gaps() {
+	if !c.iso.ReleasesUnmatched() {
 		return
 	}
 	mode, ok := innodb.Record(newLock)
@@ -227,7 +228,7 @@ func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef, newLoc
 // protocol mode m newly created the record lock on the row with lock key
 // key. A later read of the same row in the request overwrites it.
 func (c *conn) noteLock(key core.KeyImage, m protocol.LockMode, created bool) {
-	if c.iso.Gaps() {
+	if !c.iso.ReleasesUnmatched() {
 		// REPEATABLE READ and SERIALIZABLE keep every lock: no Unlock to ask for.
 		return
 	}
@@ -241,22 +242,27 @@ func (c *conn) noteLock(key core.KeyImage, m protocol.LockMode, created bool) {
 	}
 }
 
-// fromBatch converts a batch for a reply and marks each ref whose record
-// lock the read newly created (RowRef.new_lock).
-func (c *conn) fromBatch(b core.Batch, end bool) *protocol.Batch {
-	out := fromBatch(b, end)
+// marks returns, for each ref of b, the mode of the record lock the read
+// newly created on that row (RowRef.new_lock), or nil when there is none.
+func (c *conn) marks(b core.Batch) []protocol.LockMode {
 	if len(c.newLocks) == 0 {
-		return out
+		return nil
 	}
+	var out []protocol.LockMode
 	for i, r := range b.Refs {
-		if i >= len(out.Refs) {
-			break
-		}
 		if m, ok := c.newLocks[string(core.LockKey(r.SourceKey, r.PK.Image))]; ok {
-			out.Refs[i].NewLock = m
+			if out == nil {
+				out = make([]protocol.LockMode, len(b.Refs))
+			}
+			out[i] = m
 		}
 	}
 	return out
+}
+
+// wire is newWireBatch with the refs' new_lock marks.
+func (c *conn) wire(field protowire.Number, b core.Batch, end bool) *wireBatch {
+	return newWireBatchMarked(field, b, end, c.marks(b))
 }
 
 // deleteAll is a DELETE without WHERE (Source scaling plan 07, SD-1). It
