@@ -87,6 +87,7 @@ func Goldens() []Golden {
 		{"TableOpenReply", OpTableOpen.Reply(), &TableOpenReply{Table: 1, Version: 1, Kind: TableKind_KIND_MIRRORED,
 			Indexes: []*IndexFlags{{Id: 0, Name: "PRIMARY", Ordered: true, EqualityProven: true}}, Fetch: []FetchMode{FetchMode_FETCH_SOURCE}}},
 		{"EmptyReply", OpStmtEnd.Reply(), &Empty{}},
+		{"StmtBeginReply", OpStmtBegin.Reply(), &StmtBeginReply{KeepUnmatchedLocks: true}},
 		{"ScanOpenReply", OpScanOpen.Reply(), &ScanOpenReply{Scan: 1, Source: batch, Delta: &Batch{End: true}}},
 		{"ScanNextReply", OpScanNext.Reply(), &ScanNextReply{Batch: batch}},
 		{"LookupReply", OpLookup.Reply(), &LookupReply{Batch: &Batch{Rows: []*Row{row("1", "ann")}, Refs: []*RowRef{ref}, KeyIdx: []uint32{0}, End: true}}},

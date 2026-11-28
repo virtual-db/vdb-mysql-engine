@@ -327,7 +327,10 @@ func (c *conn) handle(op protocol.Op, body []byte) (any, error) {
 			return nil, err
 		}
 		c.stmtMark = s.LockMark()
-		return &protocol.Empty{}, nil
+		// Tell vdb.so whether this statement's Unlocks would release
+		// anything, so it sends none when they would not (one round trip
+		// per row a locking scan rejects).
+		return &protocol.StmtBeginReply{KeepUnmatchedLocks: !c.iso.ReleasesUnmatched()}, nil
 	case protocol.OpStmtEnd, protocol.OpStmtRollback, protocol.OpCommit, protocol.OpRollback, protocol.OpSnapshot:
 		s, err := c.session()
 		if err != nil {
