@@ -227,6 +227,10 @@ func (c *conn) unlockRow(s core.Session, t core.TableID, ref core.RowRef, newLoc
 // protocol mode m newly created the record lock on the row with lock key
 // key. A later read of the same row in the request overwrites it.
 func (c *conn) noteLock(key core.KeyImage, m protocol.LockMode, created bool) {
+	if c.iso.Gaps() {
+		// REPEATABLE READ and SERIALIZABLE keep every lock: no Unlock to ask for.
+		return
+	}
 	if c.newLocks == nil {
 		c.newLocks = map[string]protocol.LockMode{}
 	}
