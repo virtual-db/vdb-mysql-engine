@@ -101,6 +101,9 @@ func TestReadLock(t *testing.T) {
 			if got := i.ReadLock(none); got != want {
 				t.Errorf("%v autocommit=%v: plain read takes %v, want %v", level, auto, got, want)
 			}
+			if i.PlainReadsLock() != (want == shared) {
+				t.Errorf("%v autocommit=%v: PlainReadsLock %v", level, auto, i.PlainReadsLock())
+			}
 			if i.ReadLock(shared) != shared || i.ReadLock(excl) != excl {
 				t.Errorf("%v autocommit=%v: locking reads keep their mode", level, auto)
 			}

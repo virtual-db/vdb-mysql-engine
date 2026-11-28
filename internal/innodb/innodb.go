@@ -163,6 +163,15 @@ func (i Isolation) ReadLock(m protocol.LockMode) protocol.LockMode {
 	return m
 }
 
+// PlainReadsLock reports whether plain reads are locking reads (ReadLock).
+// An exact count from the table's view then cannot stand in for the read:
+// InnoDB answers records() with a scan that takes shared next-key locks on
+// every row (row_scan_index_for_mysql with LOCK_S), so the engine declines
+// the count and mysqld counts through a scan.
+func (i Isolation) PlainReadsLock() bool {
+	return i.ReadLock(protocol.LockMode_LOCK_NONE) != protocol.LockMode_LOCK_NONE
+}
+
 // Scope is the snapshot scope: one pair per statement at READ COMMITTED and
 // READ UNCOMMITTED, one per transaction otherwise (product doc 07 §4).
 func (i Isolation) Scope() core.SnapshotScope {

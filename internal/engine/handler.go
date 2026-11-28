@@ -364,6 +364,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if err != nil {
 			return nil, err
 		}
+		m.Lock = c.iso.ReadLock(m.Lock)
 		return c.scanOpen(m)
 	case protocol.OpScanNext:
 		m, err := decode[protocol.ScanNext](body)
@@ -397,6 +398,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if err != nil {
 			return nil, err
 		}
+		m.Lock = c.iso.ReadLock(m.Lock)
 		return c.lookup(m)
 	case protocol.OpLookupNext:
 		m, err := decode[protocol.LookupNext](body)
@@ -408,6 +410,10 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		m, err := decode[protocol.Count](body)
 		if err != nil {
 			return nil, err
+		}
+		if c.iso.PlainReadsLock() {
+			// Counted by a locking scan instead, as InnoDB does.
+			return &protocol.CountReply{Declined: true}, nil
 		}
 		s, err := c.session()
 		if err != nil {
@@ -560,16 +566,15 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	lock := c.iso.ReadLock(m.Lock)
 	req := core.ScanRequest{Table: core.TableID(m.Table), Index: core.IndexID(m.Index), Ordered: m.Kind != protocol.ScanKind_SCAN_UNORDERED,
-		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
+		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
 	if m.Backward {
 		req.Dir = core.Backward
 	}
 	for _, r := range m.Ranges {
 		req.Ranges = append(req.Ranges, toRange(r))
 	}
-	if err := c.intervalLocks(s, req, lock); err != nil {
+	if err := c.intervalLocks(s, req, m.Lock); err != nil {
 		return nil, err
 	}
 	start := time.Now()
@@ -674,7 +679,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, c.iso.ReadLock(m.Lock), core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
+	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
 	if err != nil {
 		return nil, err
 	}
