@@ -79,17 +79,6 @@ func toRef(r *protocol.RowRef) core.RowRef {
 	return ref
 }
 
-func fromRef(r core.RowRef) *protocol.RowRef {
-	out := &protocol.RowRef{Pk: &protocol.Key{Image: r.PK.Image, Raw: r.PK.Raw}, SourceKey: r.SourceKey}
-	if r.Origin == core.OriginDelta {
-		out.Origin = protocol.Origin_ORIGIN_DELTA
-	}
-	if r.Whole != nil {
-		out.Whole = fromRow(r.Whole)
-	}
-	return out
-}
-
 func toRange(r *protocol.Range) core.KeyRange {
 	kr := core.KeyRange{}
 	if r.Low != nil {
@@ -118,20 +107,6 @@ func toStmtContext(m *protocol.StmtBegin, iso innodb.Isolation) core.StmtContext
 	}
 	return core.StmtContext{Database: m.Database, Snapshot: iso.Scope(), View: iso.View(),
 		LockWait: time.Duration(m.LockWaitMs) * time.Millisecond, Eval: eval, ReadOnly: m.ReadOnly, Digest: m.Digest}
-}
-
-func fromBatch(b core.Batch, end bool) *protocol.Batch {
-	out := &protocol.Batch{End: end}
-	for i, r := range b.Rows {
-		out.Rows = append(out.Rows, fromRow(r))
-		if i < len(b.Refs) {
-			out.Refs = append(out.Refs, fromRef(b.Refs[i]))
-		}
-	}
-	for _, k := range b.KeyIdx {
-		out.KeyIdx = append(out.KeyIdx, k)
-	}
-	return out
 }
 
 func kindOf(k core.TableKind) protocol.TableKind {
