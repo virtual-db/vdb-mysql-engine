@@ -143,8 +143,24 @@ func Span(t core.TableID, idx core.IndexID, r core.ImageRange) core.Resource {
 }
 
 // Isolation is a session's isolation level and what it means on the core.
+// Autocommit says the statement runs outside a multi-statement transaction:
+// autocommit on and no BEGIN (mysqld's OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN
+// both clear).
 type Isolation struct {
-	Level protocol.Isolation
+	Level      protocol.Isolation
+	Autocommit bool
+}
+
+// ReadLock returns the lock mode a read through mysqld's lock mode m takes.
+// At SERIALIZABLE inside a multi-statement transaction InnoDB turns every
+// plain read into a shared locking read, as if it said LOCK IN SHARE MODE
+// (ha_innobase::external_lock); a plain read in autocommit stays a
+// consistent read. Every other read keeps m.
+func (i Isolation) ReadLock(m protocol.LockMode) protocol.LockMode {
+	if m == protocol.LockMode_LOCK_NONE && i.Level == protocol.Isolation_SERIALIZABLE && !i.Autocommit {
+		return protocol.LockMode_LOCK_SHARED
+	}
+	return m
 }
 
 // Scope is the snapshot scope: one pair per statement at READ COMMITTED and

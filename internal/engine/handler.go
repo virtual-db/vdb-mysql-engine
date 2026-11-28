@@ -301,7 +301,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (proto.Message, error) {
 		if !m.Bka {
 			c.noBKA.Add(1)
 		}
-		c.iso = innodb.Isolation{Level: m.Isolation}
+		c.iso = innodb.Isolation{Level: m.Isolation, Autocommit: m.Autocommit}
 		c.fkChecks = m.ForeignKeyChecks
 		c.ctx = toStmtContext(m, c.iso)
 		s, err := c.session()
@@ -560,15 +560,16 @@ func (c *conn) scanOpen(m *protocol.ScanOpen) (proto.Message, error) {
 	if err != nil {
 		return nil, err
 	}
+	lock := c.iso.ReadLock(m.Lock)
 	req := core.ScanRequest{Table: core.TableID(m.Table), Index: core.IndexID(m.Index), Ordered: m.Kind != protocol.ScanKind_SCAN_UNORDERED,
-		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
+		Columns: toCols(m.Columns), Pushed: m.Pushed, Locks: c.readLocks(s, lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), c.iso.Gaps())}
 	if m.Backward {
 		req.Dir = core.Backward
 	}
 	for _, r := range m.Ranges {
 		req.Ranges = append(req.Ranges, toRange(r))
 	}
-	if err := c.intervalLocks(s, req, m.Lock); err != nil {
+	if err := c.intervalLocks(s, req, lock); err != nil {
 		return nil, err
 	}
 	start := time.Now()
@@ -673,7 +674,7 @@ func (c *conn) lookup(m *protocol.Lookup) (proto.Message, error) {
 	for i, k := range m.Keys {
 		keys[i] = toKey(k)
 	}
-	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, m.Lock, core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
+	cur, err := s.Lookup(core.TableID(m.Table), core.IndexID(m.Index), keys, toCols(m.Columns), c.readLocks(s, c.iso.ReadLock(m.Lock), core.TableID(m.Table), core.IndexID(m.Index), toCols(m.Columns), false))
 	if err != nil {
 		return nil, err
 	}
