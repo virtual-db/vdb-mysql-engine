@@ -313,7 +313,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (any, error) {
 		if !m.Bka {
 			c.noBKA.Add(1)
 		}
-		c.iso = innodb.Isolation{Level: m.Isolation}
+		c.iso = innodb.Isolation{Level: m.Isolation, Autocommit: m.Autocommit}
 		c.fkChecks = m.ForeignKeyChecks
 		c.ctx = toStmtContext(m, c.iso)
 		s, err := c.session()
@@ -379,6 +379,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+		m.Lock = c.iso.ReadLock(m.Lock)
 		return c.scanOpen(m)
 	case protocol.OpScanNext:
 		m, err := decode[protocol.ScanNext](body)
@@ -412,6 +413,7 @@ func (c *conn) handle(op protocol.Op, body []byte) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+		m.Lock = c.iso.ReadLock(m.Lock)
 		return c.lookup(m)
 	case protocol.OpLookupNext:
 		m, err := decode[protocol.LookupNext](body)
@@ -423,6 +425,10 @@ func (c *conn) handle(op protocol.Op, body []byte) (any, error) {
 		m, err := decode[protocol.Count](body)
 		if err != nil {
 			return nil, err
+		}
+		if c.iso.PlainReadsLock() {
+			// Counted by a locking scan instead, as InnoDB does.
+			return &protocol.CountReply{Declined: true}, nil
 		}
 		s, err := c.session()
 		if err != nil {

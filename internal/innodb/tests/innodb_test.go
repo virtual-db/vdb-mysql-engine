@@ -90,3 +90,27 @@ func TestIsolation(t *testing.T) {
 		}
 	}
 }
+
+func TestReadLock(t *testing.T) {
+	none, shared, excl := protocol.LockMode_LOCK_NONE, protocol.LockMode_LOCK_SHARED, protocol.LockMode_LOCK_EXCLUSIVE
+	levels := []protocol.Isolation{protocol.Isolation_READ_UNCOMMITTED, protocol.Isolation_READ_COMMITTED,
+		protocol.Isolation_REPEATABLE_READ, protocol.Isolation_SERIALIZABLE}
+	for _, level := range levels {
+		for _, auto := range []bool{true, false} {
+			i := Isolation{Level: level, Autocommit: auto}
+			want := none
+			if level == protocol.Isolation_SERIALIZABLE && !auto {
+				want = shared
+			}
+			if got := i.ReadLock(none); got != want {
+				t.Errorf("%v autocommit=%v: plain read takes %v, want %v", level, auto, got, want)
+			}
+			if i.PlainReadsLock() != (want == shared) {
+				t.Errorf("%v autocommit=%v: PlainReadsLock %v", level, auto, i.PlainReadsLock())
+			}
+			if i.ReadLock(shared) != shared || i.ReadLock(excl) != excl {
+				t.Errorf("%v autocommit=%v: locking reads keep their mode", level, auto)
+			}
+		}
+	}
+}
